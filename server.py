@@ -33,7 +33,20 @@ Settings.llm = llm
 #    persistiert den Index, sodass der Server künftig ohne Neu-Embedding startet.
 print("📚 Initialisiere Siemens-Wissen (persistenter Vektorindex) …")
 index = rag_engine.build_or_load_index()
-query_engine = index.as_query_engine(similarity_top_k=rag_engine.DEFAULT_TOP_K)
+
+# Zweistufiges Retrieval: breit abrufen (RETRIEVE_K) → per Cross-Encoder auf die
+# relevantesten FINAL_K reranken. Reranking ändert den Index nicht (rein
+# nachgelagert), daher kein Neu-Embedding nötig.
+reranker = rag_engine.get_reranker()
+_postprocessors = [reranker] if reranker else []
+query_engine = index.as_query_engine(
+    similarity_top_k=rag_engine.RETRIEVE_K,
+    node_postprocessors=_postprocessors,
+)
+print(
+    f"🎯 Retrieval: top_k={rag_engine.RETRIEVE_K} → "
+    + (f"Rerank({rag_engine.RERANK_MODEL}) → {rag_engine.FINAL_K}" if reranker else "kein Rerank")
+)
 
 # 3. PROMPT: Deutsch, XML-Zwang, Fokus auf maximale Tiefe.
 prompt_anweisung = """System: Du bist ein hochqualifizierter technischer Support-Experte für Siemens Hausgeräte.

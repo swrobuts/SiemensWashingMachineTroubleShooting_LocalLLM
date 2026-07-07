@@ -23,7 +23,18 @@ PARSER_VERSION = "md-v1"
 
 DEFAULT_MD_PATH = "siemens_wissen.md"
 DEFAULT_PERSIST_DIR = "storage"
-DEFAULT_TOP_K = 6
+
+# Zweistufiges Retrieval: erst breit per Vektor abrufen (RETRIEVE_K), dann per
+# Cross-Encoder auf die wirklich relevanten FINAL_K herunter-reranken. Der
+# Reranker liest Frage + Textstück gemeinsam und ist deutlich präziser als reine
+# Vektorähnlichkeit — genau das hebt die Trefferqualität.
+RETRIEVE_K = int(os.getenv("RETRIEVE_K", "12"))   # Overfetch für den Reranker
+FINAL_K = int(os.getenv("FINAL_K", "5"))          # was das LLM am Ende sieht
+
+# Multilingualer Reranker (versteht Deutsch gut). Leichtere Alternative:
+# "cross-encoder/ms-marco-MiniLM-L6-v2" (schneller, aber englisch-lastig).
+RERANK_MODEL = os.getenv("RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
+ENABLE_RERANK = os.getenv("ENABLE_RERANK", "1") != "0"
 
 
 def _needs_e5_prefix(model_name: str) -> bool:
@@ -64,6 +75,23 @@ def get_embed_model(model_name: str = DEFAULT_EMBED_MODEL):
         kwargs["query_instruction"] = "query: "
         kwargs["text_instruction"] = "passage: "
     return HuggingFaceEmbedding(**kwargs)
+
+
+def get_reranker(model_name: str | None = None, top_n: int | None = None, enable: bool | None = None):
+    """Cross-Encoder-Reranker (oder ``None``, wenn deaktiviert).
+
+    Bei ``enable=False`` wird ``sentence-transformers`` gar nicht erst geladen —
+    so bleibt die Funktion ohne schwere Abhängigkeiten testbar.
+    """
+    enable = ENABLE_RERANK if enable is None else enable
+    if not enable:
+        return None
+    from llama_index.core.postprocessor import SentenceTransformerRerank
+
+    return SentenceTransformerRerank(
+        model=model_name or RERANK_MODEL,
+        top_n=top_n or FINAL_K,
+    )
 
 
 def build_or_load_index(

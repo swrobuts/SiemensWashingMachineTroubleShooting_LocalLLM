@@ -35,11 +35,16 @@ def retrieved_text(nodes) -> str:
     return "\n".join(n.get_content() for n in nodes).lower()
 
 
-def run(top_k: int) -> int:
+def run(retrieve_k: int, final_k: int, use_rerank: bool) -> int:
     from llama_index.core import Settings
 
     embed_model = rag_engine.DEFAULT_EMBED_MODEL
-    print(f"🔎 Eval — Embedding: {embed_model} | top_k={top_k}\n")
+    reranker = rag_engine.get_reranker(top_n=final_k, enable=use_rerank)
+    stage = (
+        f"top_k={retrieve_k} → Rerank({rag_engine.RERANK_MODEL}) → {final_k}"
+        if reranker else f"top_k={retrieve_k} (kein Rerank)"
+    )
+    print(f"🔎 Eval — Embedding: {embed_model} | {stage}\n")
 
     index = rag_engine.build_or_load_index(
         md_path=ROOT / "siemens_wissen.md",
@@ -48,7 +53,7 @@ def run(top_k: int) -> int:
     )
     # Settings.embed_model wurde von build_or_load_index gesetzt.
     assert Settings.embed_model is not None
-    retriever = index.as_retriever(similarity_top_k=top_k)
+    retriever = index.as_retriever(similarity_top_k=retrieve_k)
 
     questions = load_questions()
     hits = 0
@@ -57,6 +62,8 @@ def run(top_k: int) -> int:
 
     for q in questions:
         nodes = retriever.retrieve(q["frage"])
+        if reranker:
+            nodes = reranker.postprocess_nodes(nodes, query_str=q["frage"])
         ctx = retrieved_text(nodes)
         expect = [kw.lower() for kw in q["expect"]]
         found = [kw for kw in expect if kw in ctx]
@@ -81,9 +88,14 @@ def run(top_k: int) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Retrieval-Eval (ohne LLM)")
-    ap.add_argument("--top-k", type=int, default=rag_engine.DEFAULT_TOP_K)
+    ap.add_argument("--retrieve-k", type=int, default=rag_engine.RETRIEVE_K,
+                    help="Vektor-Overfetch vor dem Reranking")
+    ap.add_argument("--final-k", type=int, default=rag_engine.FINAL_K,
+                    help="Anzahl Abschnitte nach dem Reranking (was das LLM sieht)")
+    ap.add_argument("--no-rerank", action="store_true",
+                    help="Reranking deaktivieren (nur Vektor) — für A/B-Vergleich")
     args = ap.parse_args()
-    return run(args.top_k)
+    return run(args.retrieve_k, args.final_k, use_rerank=not args.no_rerank)
 
 
 if __name__ == "__main__":

@@ -56,3 +56,8 @@ def test_e5_needs_prefix():
 def test_non_e5_no_prefix():
     assert not rag_engine._needs_e5_prefix("BAAI/bge-m3")
     assert not rag_engine._needs_e5_prefix("sentence-transformers/all-MiniLM-L6-v2")
+
+
+def test_reranker_disabled_returns_none():
+    # enable=False darf sentence-transformers NICHT importieren → hier testbar.
+    assert rag_engine.get_reranker(enable=False) is None
