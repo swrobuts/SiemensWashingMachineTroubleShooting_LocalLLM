@@ -75,6 +75,7 @@ python3 eval/run_eval.py --no-rerank     # nur Vektor (A/B-Vergleich)
 | `RERANK_MODEL` | `BAAI/bge-reranker-v2-m3` | Cross-Encoder-Reranker |
 | `ENABLE_RERANK` | `1` | `0` = Reranking aus |
 | `RETRIEVE_K` / `FINAL_K` | `12` / `5` | Overfetch bzw. finale Abschnitte |
+| `GUARDRAIL_MIN_SCORE` | `0.15` | Mindest-Reranker-Score; darunter „nicht im Handbuch" statt Antwort |
 
 ## Ergebnisse (Retrieval-Eval, 10 reale Störungsfragen)
 

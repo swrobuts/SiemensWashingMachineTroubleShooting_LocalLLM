@@ -51,6 +51,10 @@ def main() -> None:
         nodes = retriever.retrieve(frage)
         if reranker:
             nodes = reranker.postprocess_nodes(nodes, query_str=frage)
+        # Guardrail: nicht vom Handbuch gedeckt → nicht halluzinieren.
+        if not rag_engine.is_grounded(nodes):
+            print("\n" + rag_engine.NOT_IN_MANUAL + "\n")
+            return
         ctx = "\n\n".join(n.node.get_content() for n in nodes)
         print(f"\n📚 Quelle: {rag_engine.format_source_reference(nodes)}\n")
         prompt = PROMPT.format(context=ctx, frage=frage)

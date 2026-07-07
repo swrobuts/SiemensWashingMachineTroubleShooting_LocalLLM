@@ -43,6 +43,31 @@ FINAL_K = int(os.getenv("FINAL_K", "5"))          # was das LLM am Ende sieht
 RERANK_MODEL = os.getenv("RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
 ENABLE_RERANK = os.getenv("ENABLE_RERANK", "1") != "0"
 
+# Guardrail gegen Halluzination: der bge-Reranker liefert Sigmoid-Scores in [0,1].
+# Kalibriert auf der Zielmaschine: In-Scope-Fragen ≥ 0.435 (meist 0.8–0.99),
+# Out-of-Scope exakt 0.000 → Schwelle 0.15 trennt mit großem Abstand.
+GUARDRAIL_MIN_SCORE = float(os.getenv("GUARDRAIL_MIN_SCORE", "0.15"))
+
+# Antwort, wenn die Frage nicht durch das Handbuch gedeckt ist (kein LLM-Aufruf).
+NOT_IN_MANUAL = (
+    "Dazu finde ich in dieser Bedienungsanleitung leider keine Information. "
+    "Bitte formulieren Sie Ihre Frage zur Waschmaschine anders oder wenden Sie "
+    "sich an den Siemens-Kundendienst."
+)
+
+
+def top_relevance(nodes) -> float:
+    """Reranker-Score des besten Treffers (0.0, wenn keine Knoten)."""
+    if not nodes or nodes[0].score is None:
+        return 0.0
+    return float(nodes[0].score)
+
+
+def is_grounded(nodes, min_score: float | None = None) -> bool:
+    """True, wenn der beste Treffer relevant genug ist (Frage vom Handbuch gedeckt)."""
+    thr = GUARDRAIL_MIN_SCORE if min_score is None else min_score
+    return top_relevance(nodes) >= thr
+
 # Fehlercodes (E:18, E18, "Fehler 18") aus der Frage ziehen. Dense-Retrieval
 # findet solche seltenen Codes unzuverlässig — deshalb holt der Hybrid-Retriever
 # den exakt passenden Chunk zusätzlich per Schlüsselwort dazu.

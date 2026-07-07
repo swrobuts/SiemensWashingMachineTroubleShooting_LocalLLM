@@ -94,10 +94,14 @@ Gemessen auf der Zielmaschine (LM Studio, lokale Modelle):
 Reasoning-Modelle „denken" lange (`reasoning_content`) → 250 s; ein schnelles
 Instruct-Modell + Streaming ist für den Kiosk deutlich besser.
 
+- **Guardrail ✅** Anti-Halluzination: kalibriert am Reranker-Score (In-Scope
+  ≥ 0.435, Out-of-Scope ≈ 0.0 → Schwelle `GUARDRAIL_MIN_SCORE=0.15`). Nicht
+  gedeckte Fragen → „nicht im Handbuch" ohne LLM-Aufruf. Zusätzlich Prompt-
+  Ehrlichkeit für Rand-Fälle. Verifiziert (Kuchen-Frage → Absage; kein LLM).
+- **Phase 4 ✅** `lokale_ki.py` → sauberes CLI, README.
+
 ### Offen (optional)
-- **Guardrail** „nicht im Handbuch" (braucht Schwellwert-Kalibrierung + Out-of-scope-Eval).
 - **Echte Mehrturn-Historie** serverseitig (der Frontend-String-Hack lebt noch).
-- **Polish:** `lokale_ki.py` entfernen/aufräumen, README.
 
 ## Verifikation
 

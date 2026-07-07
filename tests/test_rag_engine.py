@@ -97,3 +97,29 @@ def test_format_source_reference_heading_and_pages():
 
 def test_format_source_reference_empty():
     assert rag_engine.format_source_reference([]) == "Siemens Handbuch"
+
+
+class _ScoredNode:
+    node = None
+
+    def __init__(self, score):
+        self.score = score
+
+
+def test_is_grounded_threshold():
+    # Kalibriert: In-Scope ≥ 0.435, Out-of-Scope ~0.0, Default-Schwelle 0.15.
+    assert rag_engine.is_grounded([_ScoredNode(0.44)])
+    assert rag_engine.is_grounded([_ScoredNode(0.90)])
+    assert not rag_engine.is_grounded([_ScoredNode(0.0)])
+    assert not rag_engine.is_grounded([])
+
+
+def test_is_grounded_custom_threshold():
+    assert rag_engine.is_grounded([_ScoredNode(0.9)], min_score=0.5)
+    assert not rag_engine.is_grounded([_ScoredNode(0.3)], min_score=0.5)
+
+
+def test_top_relevance_handles_missing():
+    assert rag_engine.top_relevance([]) == 0.0
+    assert rag_engine.top_relevance([_ScoredNode(None)]) == 0.0
+    assert rag_engine.top_relevance([_ScoredNode(0.7)]) == 0.7

@@ -157,6 +157,21 @@ def ask_ai():
 
     print(f"\nNeue Frage von der Webseite erhalten: '{frage}'")
 
+    # Guardrail: Frage nicht vom Handbuch gedeckt → nicht halluzinieren.
+    _g_nodes = _stream_retriever.retrieve(frage)
+    if _stream_reranker:
+        _g_nodes = _stream_reranker.postprocess_nodes(_g_nodes, query_str=frage)
+    if not rag_engine.is_grounded(_g_nodes):
+        return jsonify({
+            "tts_summary": rag_engine.NOT_IN_MANUAL,
+            "results": [{
+                "title": "❓ Nicht im Handbuch gefunden",
+                "content": rag_engine.NOT_IN_MANUAL,
+                "sourceType": "manual",
+                "reference": "",
+            }],
+        })
+
     try:
         antwort = query_engine.query(frage)
         antwort_text = str(antwort).strip()
@@ -230,6 +245,22 @@ def ask_ai_stream():
             nodes = _stream_retriever.retrieve(frage)
             if _stream_reranker:
                 nodes = _stream_reranker.postprocess_nodes(nodes, query_str=frage)
+
+            # Guardrail: Frage nicht vom Handbuch gedeckt → nicht halluzinieren.
+            if not rag_engine.is_grounded(nodes):
+                yield _sse("meta", {"reference": ""})
+                yield _sse("result", {
+                    "tts_summary": rag_engine.NOT_IN_MANUAL,
+                    "results": [{
+                        "title": "❓ Nicht im Handbuch gefunden",
+                        "content": rag_engine.NOT_IN_MANUAL,
+                        "sourceType": "manual",
+                        "reference": "",
+                    }],
+                })
+                yield "data: [DONE]\n\n"
+                return
+
             quelle = rag_engine.format_source_reference(nodes)
             yield _sse("meta", {"reference": quelle})
 
