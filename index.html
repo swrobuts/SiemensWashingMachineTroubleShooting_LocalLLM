@@ -530,7 +530,51 @@
         performSearch(hiddenContextQuery);
     }
 
-    // 4. API Abfrage & Rendering
+    // XML-Tags/Markdown für die Live-Vorschau entfernen (rohe Antwort lesbar machen)
+    function stripForPreview(t) {
+        return t.replace(/<\/?[a-z_]+>/gi, '').replace(/\*\*(.*?)\*\*/g, '$1').trim();
+    }
+
+    // Strukturierte Ergebnis-Karten rendern (aus dem finalen 'result'-Event)
+    function renderResults(data, reference) {
+        const resultsList = document.getElementById('results-list');
+        const actionBar = document.getElementById('actionBar');
+        const followupContainer = document.getElementById('followup-container');
+
+        resultsList.innerHTML = '';
+        if (data.tts_summary) {
+            currentTtsText = data.tts_summary;
+            actionBar.style.display = 'flex';
+        }
+        const results = data.results || [];
+        if (!results.length) {
+            resultsList.innerHTML = '<p>Keine Antworten gefunden.</p>';
+            return;
+        }
+        results.forEach((item, index) => {
+            const badgeClass = item.sourceType === 'manual' ? 'badge manual' : 'badge internet';
+            const sourceLabel = item.sourceType === 'manual' ? 'Handbuch (Lokale KI)' : 'Internet / Community';
+
+            let formattedContent = item.content || '';
+            formattedContent = formattedContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            formattedContent = formattedContent.replace(/- \[\s?\] (.*)/g, '<label class="task-checkbox"><input type="checkbox"> <span>$1</span></label>');
+
+            const ref = item.reference || reference || '';
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            card.style.animationDelay = `${index * 0.15}s`;
+            card.innerHTML = `
+                    <span class="${badgeClass}">Quelle: ${sourceLabel}</span>
+                    <h4>${item.title}</h4>
+                    <div style="white-space: pre-wrap;">${formattedContent}</div>
+                    ${ref ? `<a href="#" class="source-link">Referenz: ${ref}</a>` : ''}
+                `;
+            resultsList.appendChild(card);
+        });
+        followupContainer.style.display = 'block';
+    }
+
+    // 4. API-Abfrage per Streaming (SSE): Quelle sofort, Antwort live, dann Karten
     async function performSearch(hiddenQuery = null) {
         // Entweder die normale Suche aus der Leiste, oder die vom System generierte Rückfrage
         const rawInput = document.getElementById('searchInput').value;
@@ -555,70 +599,67 @@
         resultsList.innerHTML = `
             <div class="loading-container">
                 <div class="spinner"></div>
-                <p style="color: var(--siemens-navy); font-weight: bold; margin: 0;">Lokale KI analysiert das Handbuch...</p>
+                <p id="live-status" style="color: var(--siemens-navy); font-weight: bold; margin: 0;">Lokale KI durchsucht das Handbuch…</p>
+                <div id="live-preview" style="text-align:left; max-width:700px; margin:20px auto 0; color:#555; white-space:pre-wrap; font-size:15px;"></div>
             </div>`;
         resultsContainer.style.display = 'block';
 
+        let reference = '';
+        let rawAnswer = '';
         try {
-            const response = await fetch('http://localhost:3001/api/ask', {
+            const response = await fetch('http://localhost:3001/api/ask_stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ frage: queryToUse })
             });
+            if (!response.ok || !response.body) throw new Error('Kein Stream verfügbar');
 
-            const rawText = await response.text();
-            let data;
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let finished = false;
 
-            try {
-                data = JSON.parse(rawText);
-            } catch (parseError) {
-                const safeText = rawText.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                resultsList.innerHTML = `
-                    <div class="result-card" style="border-color: red; opacity: 1; animation: none;">
-                        <h4 style="color: red;">Backend-Fehler</h4>
-                        <div class="debug-box">${safeText}</div>
-                    </div>`;
-                return;
+            while (!finished) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+
+                // SSE-Events sind durch eine Leerzeile getrennt
+                const blocks = buffer.split('\n\n');
+                buffer = blocks.pop();  // unvollständigen Rest behalten
+
+                for (const block of blocks) {
+                    let evName = 'message', dataStr = '';
+                    for (const line of block.split('\n')) {
+                        if (line.startsWith('event:')) evName = line.slice(6).trim();
+                        else if (line.startsWith('data:')) dataStr += line.slice(5).trim();
+                    }
+                    if (dataStr === '[DONE]') { finished = true; break; }
+
+                    if (evName === 'meta') {
+                        try { reference = JSON.parse(dataStr).reference || ''; } catch (e) {}
+                        const st = document.getElementById('live-status');
+                        if (st) st.textContent = reference
+                            ? `Quelle: ${reference} — Antwort wird erstellt…`
+                            : 'Antwort wird erstellt…';
+                    } else if (evName === 'token') {
+                        try { rawAnswer += JSON.parse(dataStr); } catch (e) {}
+                        const lp = document.getElementById('live-preview');
+                        if (lp) lp.textContent = stripForPreview(rawAnswer);
+                    } else if (evName === 'result') {
+                        let data = null;
+                        try { data = JSON.parse(dataStr); } catch (e) {}
+                        if (data) {
+                            renderResults(data, reference);
+                            lastQuery = rawInput;
+                        }
+                    } else if (evName === 'error') {
+                        let msg = 'Unbekannter Fehler';
+                        try { msg = JSON.parse(dataStr).message || msg; } catch (e) {}
+                        resultsList.innerHTML = `<div class="result-card" style="border-color:red;opacity:1;animation:none;"><h4 style="color:red;">Fehler</h4><p>${msg}</p></div>`;
+                    }
+                }
             }
-
-            resultsList.innerHTML = '';
-
-            if (data.tts_summary) {
-                currentTtsText = data.tts_summary;
-                actionBar.style.display = 'flex';
-            }
-
-            if (data.results && data.results.length > 0) {
-                data.results.forEach((item, index) => {
-                    const badgeClass = item.sourceType === 'manual' ? 'badge manual' : 'badge internet';
-                    const sourceLabel = item.sourceType === 'manual' ? 'Handbuch (Lokale KI)' : 'Internet / Community';
-
-                    let formattedContent = item.content || '';
-                    formattedContent = formattedContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                    formattedContent = formattedContent.replace(/- \[\s?\] (.*)/g, '<label class="task-checkbox"><input type="checkbox"> <span>$1</span></label>');
-
-                    const card = document.createElement('div');
-                    card.className = 'result-card';
-                    card.style.animationDelay = `${index * 0.15}s`;
-                    card.innerHTML = `
-                            <span class="${badgeClass}">Quelle: ${sourceLabel}</span>
-                            <h4>${item.title}</h4>
-                            <div style="white-space: pre-wrap;">${formattedContent}</div>
-                            ${item.reference ? `<a href="#" class="source-link">Referenz: ${item.reference}</a>` : ''}
-                        `;
-                    resultsList.appendChild(card);
-                });
-
-                // Nach erfolgreicher Suche: Rückfrage-Bereich anzeigen und aktuelle Frage merken
-                followupContainer.style.display = 'block';
-                lastQuery = rawInput; // Merkt sich immer die Frage, die in der großen Suchleiste steht
-
-            } else if (data.error) {
-                resultsList.innerHTML = `<div class="result-card" style="opacity: 1; animation: none;"><h4 style="color: red;">Fehler</h4><p>${data.error}</p></div>`;
-            } else {
-                resultsList.innerHTML = '<p>Keine Antworten gefunden.</p>';
-            }
-
         } catch (error) {
             resultsList.innerHTML = `
                 <div class="result-card" style="border-color: red; opacity: 1; animation: none;">
