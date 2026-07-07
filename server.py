@@ -34,20 +34,6 @@ Settings.llm = llm
 print("📚 Initialisiere Siemens-Wissen (persistenter Vektorindex) …")
 index = rag_engine.build_or_load_index()
 
-# Zweistufiges Retrieval: breit abrufen (RETRIEVE_K) → per Cross-Encoder auf die
-# relevantesten FINAL_K reranken. Reranking ändert den Index nicht (rein
-# nachgelagert), daher kein Neu-Embedding nötig.
-reranker = rag_engine.get_reranker()
-_postprocessors = [reranker] if reranker else []
-query_engine = index.as_query_engine(
-    similarity_top_k=rag_engine.RETRIEVE_K,
-    node_postprocessors=_postprocessors,
-)
-print(
-    f"🎯 Retrieval: top_k={rag_engine.RETRIEVE_K} → "
-    + (f"Rerank({rag_engine.RERANK_MODEL}) → {rag_engine.FINAL_K}" if reranker else "kein Rerank")
-)
-
 # 3. PROMPT: Deutsch, XML-Zwang, Fokus auf maximale Tiefe.
 prompt_anweisung = """System: Du bist ein hochqualifizierter technischer Support-Experte für Siemens Hausgeräte.
 Deine Aufgabe ist es, das Handbuch extrem detailliert auszuwerten und dem Nutzer professionell, empathisch und in seiner Sprache zu antworten.
@@ -79,7 +65,13 @@ Nutzerfrage: {query_str}
 Antwort (NUR MIT XML-TAGS):"""
 
 qa_template = PromptTemplate(prompt_anweisung)
-query_engine.update_prompts({"response_synthesizer:text_qa_template": qa_template})
+# Hybrid-Retriever (Vektor + Fehlercode-Lookup) + Reranker.
+query_engine = rag_engine.make_query_engine(index, qa_template)
+print(
+    f"🎯 Retrieval: hybrid top_k={rag_engine.RETRIEVE_K} → "
+    + (f"Rerank({rag_engine.RERANK_MODEL}) → {rag_engine.FINAL_K}"
+       if rag_engine.ENABLE_RERANK else "kein Rerank")
+)
 
 print("✅ System bereit!")
 print("🌐 Der lokale Server lauscht jetzt auf http://localhost:3001")

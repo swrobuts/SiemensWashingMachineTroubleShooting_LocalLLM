@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 from pathlib import Path
 
 # Embedding-Modell — per ENV umstellbar (Phase 1: e5-base / bge-m3).
@@ -19,7 +20,13 @@ DEFAULT_EMBED_MODEL = os.getenv("EMBED_MODEL", "intfloat/multilingual-e5-small")
 
 # Version der Chunking-/Node-Logik. Erhöhen, wenn sich der Parser ändert, damit
 # ein alter persistenter Index automatisch verworfen und neu gebaut wird.
-PARSER_VERSION = "md-v1"
+PARSER_VERSION = "md-v3"
+
+# Große Markdown-Tabellen (z. B. die Fehlercode-Tabelle, ~6 KB) embedden als
+# unspezifischer „Brei" und werden für konkrete Fragen nicht gefunden. Solche
+# Nodes werden zeilenweise aufgeteilt — jede Tabellenzeile (jeder Fehlercode)
+# wird ein eigener, auffindbarer Abschnitt mit Überschrift + Tabellenkopf.
+MAX_NODE_CHARS = int(os.getenv("MAX_NODE_CHARS", "1600"))
 
 DEFAULT_MD_PATH = "siemens_wissen.md"
 DEFAULT_PERSIST_DIR = "storage"
@@ -35,6 +42,21 @@ FINAL_K = int(os.getenv("FINAL_K", "5"))          # was das LLM am Ende sieht
 # "cross-encoder/ms-marco-MiniLM-L6-v2" (schneller, aber englisch-lastig).
 RERANK_MODEL = os.getenv("RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
 ENABLE_RERANK = os.getenv("ENABLE_RERANK", "1") != "0"
+
+# Fehlercodes (E:18, E18, "Fehler 18") aus der Frage ziehen. Dense-Retrieval
+# findet solche seltenen Codes unzuverlässig — deshalb holt der Hybrid-Retriever
+# den exakt passenden Chunk zusätzlich per Schlüsselwort dazu.
+_CODE_RE = re.compile(r"(?:\bE[:\s]?|\bfehler(?:code)?\s+)(\d{1,3})\b", re.IGNORECASE)
+
+
+def extract_error_codes(query: str) -> set[str]:
+    """Liefert Suchvarianten je erkanntem Code, z. B. {'E:18', 'E18'}."""
+    codes: set[str] = set()
+    for m in _CODE_RE.finditer(query or ""):
+        n = m.group(1)
+        codes.add(f"E:{n}")
+        codes.add(f"E{n}")
+    return codes
 
 
 def _needs_e5_prefix(model_name: str) -> bool:
@@ -75,6 +97,57 @@ def get_embed_model(model_name: str = DEFAULT_EMBED_MODEL):
         kwargs["query_instruction"] = "query: "
         kwargs["text_instruction"] = "passage: "
     return HuggingFaceEmbedding(**kwargs)
+
+
+def _explode_markdown_tables(nodes, max_chars: int = MAX_NODE_CHARS):
+    """Große tabellenlastige Nodes zeilenweise aufteilen.
+
+    Jede Datenzeile wird ein eigener Node aus ``Überschrift + Tabellenkopf + Zeile``,
+    sodass z. B. ``E:18 | Laugenpumpe verstopft …`` gezielt auffindbar wird.
+    Kleine Nodes und Nodes ohne echte Tabelle bleiben unverändert. Kein Inhalt
+    geht verloren (Fließtext-Anteile werden als eigener Node behalten).
+    """
+    from llama_index.core.schema import TextNode
+
+    out = []
+    for node in nodes:
+        text = node.get_content()
+        table_lines = [l for l in text.split("\n") if l.strip().startswith("|")]
+        # Nur echte, große Tabellen aufteilen (Kopf + Trennzeile + ≥1 Datenzeile).
+        if len(text) <= max_chars or len(table_lines) < 3:
+            out.append(node)
+            continue
+
+        lines = text.split("\n")
+        heading = " ".join(l.strip() for l in lines if l.strip().startswith("#"))
+        prose = "\n".join(
+            l for l in lines
+            if l.strip() and not l.strip().startswith("|") and not l.strip().startswith("#")
+        ).strip()
+        header, rows = table_lines[0], table_lines[2:]  # [1] ist die |---|-Trennzeile
+        labels = _split_row(header)
+
+        if prose:
+            out.append(TextNode(text=f"{heading}\n{prose}".strip(), metadata=dict(node.metadata)))
+        for row in rows:
+            cells = _split_row(row)
+            if not any(cells):
+                continue
+            # Als lesbaren Fließtext rendern statt als gepaddte Roh-Zeile — sonst
+            # dominiert Ausrichtungs-Whitespace das Embedding (Rauschen).
+            pairs = "; ".join(
+                f"{lbl}: {val}" if lbl else val
+                for lbl, val in zip(labels + [""] * len(cells), cells)
+                if val
+            )
+            content = f"{heading}\n{pairs}".strip()
+            out.append(TextNode(text=content, metadata=dict(node.metadata)))
+    return out
+
+
+def _split_row(line: str) -> list[str]:
+    """Markdown-Tabellenzeile in bereinigte Zellen zerlegen (Whitespace kollabiert)."""
+    return [re.sub(r"\s+", " ", c).strip() for c in line.strip().strip("|").split("|")]
 
 
 def get_reranker(model_name: str | None = None, top_n: int | None = None, enable: bool | None = None):
@@ -128,9 +201,57 @@ def build_or_load_index(
     print(f"🔧 Baue Index neu (Quelle/Konfig geändert) → '{persist_dir}' …")
     documents = SimpleDirectoryReader(input_files=[str(md_path)]).load_data()
     nodes = MarkdownNodeParser().get_nodes_from_documents(documents)
+    nodes = _explode_markdown_tables(nodes)
     index = VectorStoreIndex(nodes)
     persist_dir.mkdir(parents=True, exist_ok=True)
     index.storage_context.persist(persist_dir=str(persist_dir))
     key_file.write_text(cache_key, encoding="utf-8")
     print(f"✅ Index gebaut & persistiert ({len(nodes)} Abschnitte).")
     return index
+
+
+def make_retriever(index, vector_k: int = RETRIEVE_K):
+    """Hybrider Retriever: Vektor-Overfetch + garantierte Fehlercode-Chunks.
+
+    Enthält die Frage einen Fehlercode (E:18 …), werden alle Chunks mit genau
+    diesem Code zusätzlich ins Kandidatenset gelegt — so kann der Reranker sie
+    hochziehen, statt dass dense Retrieval sie verpasst.
+    """
+    from llama_index.core.retrievers import BaseRetriever
+    from llama_index.core.schema import NodeWithScore
+
+    class _HybridRetriever(BaseRetriever):
+        def __init__(self):
+            self._vr = index.as_retriever(similarity_top_k=vector_k)
+            self._docs = index.docstore.docs
+            super().__init__()
+
+        def _retrieve(self, query_bundle):
+            nodes = self._vr.retrieve(query_bundle)
+            codes = extract_error_codes(query_bundle.query_str)
+            if not codes:
+                return nodes
+            have = {n.node.node_id for n in nodes}
+            for nid, node in self._docs.items():
+                if nid in have:
+                    continue
+                content = node.get_content()
+                if any(code in content for code in codes):
+                    nodes.append(NodeWithScore(node=node, score=1.0))
+            return nodes
+
+    return _HybridRetriever()
+
+
+def make_query_engine(index, qa_template=None):
+    """Query-Engine mit Hybrid-Retriever + Reranker (für server.py)."""
+    from llama_index.core.query_engine import RetrieverQueryEngine
+
+    reranker = get_reranker()
+    engine = RetrieverQueryEngine.from_args(
+        make_retriever(index),
+        node_postprocessors=[reranker] if reranker else [],
+    )
+    if qa_template is not None:
+        engine.update_prompts({"response_synthesizer:text_qa_template": qa_template})
+    return engine

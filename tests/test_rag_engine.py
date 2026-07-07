@@ -61,3 +61,15 @@ def test_non_e5_no_prefix():
 def test_reranker_disabled_returns_none():
     # enable=False darf sentence-transformers NICHT importieren → hier testbar.
     assert rag_engine.get_reranker(enable=False) is None
+
+
+def test_extract_error_codes_variants():
+    assert rag_engine.extract_error_codes("Was bedeutet E:18?") == {"E:18", "E18"}
+    assert rag_engine.extract_error_codes("meine Maschine zeigt E23") == {"E:23", "E23"}
+    assert rag_engine.extract_error_codes("Fehler 18 im Display") == {"E:18", "E18"}
+    assert rag_engine.extract_error_codes("Fehlercode 23") == {"E:23", "E23"}
+
+
+def test_extract_error_codes_none():
+    assert rag_engine.extract_error_codes("Wasser läuft aus") == set()
+    assert rag_engine.extract_error_codes("") == set()

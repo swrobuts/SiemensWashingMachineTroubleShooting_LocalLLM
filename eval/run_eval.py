@@ -53,33 +53,51 @@ def run(retrieve_k: int, final_k: int, use_rerank: bool) -> int:
     )
     # Settings.embed_model wurde von build_or_load_index gesetzt.
     assert Settings.embed_model is not None
-    retriever = index.as_retriever(similarity_top_k=retrieve_k)
+    retriever = rag_engine.make_retriever(index, vector_k=retrieve_k)
 
     questions = load_questions()
     hits = 0
+    hits_at_1 = 0
     recalls: list[float] = []
+    rrs: list[float] = []
     misses: list[str] = []
+
+    def kws_in(node, expect):
+        c = node.get_content().lower()
+        return [kw for kw in expect if kw in c]
 
     for q in questions:
         nodes = retriever.retrieve(q["frage"])
         if reranker:
             nodes = reranker.postprocess_nodes(nodes, query_str=q["frage"])
-        ctx = retrieved_text(nodes)
+        else:
+            nodes = nodes[:final_k]  # fair: beide Varianten sehen gleich viele Knoten
         expect = [kw.lower() for kw in q["expect"]]
-        found = [kw for kw in expect if kw in ctx]
+
+        found = sorted({kw for node in nodes for kw in kws_in(node, expect)})
         recall = len(found) / len(expect) if expect else 0.0
         recalls.append(recall)
+
+        # Rang des ersten relevanten Knotens → MRR und hit@1
+        rank = next((i for i, node in enumerate(nodes) if kws_in(node, expect)), None)
+        rr = 1.0 / (rank + 1) if rank is not None else 0.0
+        rrs.append(rr)
+        hits_at_1 += int(rank == 0)
+
         is_hit = len(found) > 0
         hits += int(is_hit)
         mark = "✅" if is_hit else "❌"
-        print(f"{mark} [{q['id']}] Recall {recall:.0%}  gefunden={found}")
+        pos = f"Rang {rank + 1}" if rank is not None else "—"
+        print(f"{mark} [{q['id']}] Recall {recall:.0%} | 1. Treffer {pos} | {found}")
         if not is_hit:
             misses.append(q["id"])
 
     n = len(questions)
     print("\n" + "=" * 50)
-    print(f"Trefferquote (≥1 Stichwort): {hits}/{n} = {hits / n:.0%}")
-    print(f"Ø Recall über alle Stichwörter: {sum(recalls) / n:.0%}")
+    print(f"Trefferquote (≥1 Stichwort in Top-{final_k}): {hits}/{n} = {hits / n:.0%}")
+    print(f"hit@1 (Top-Knoten relevant):               {hits_at_1}/{n} = {hits_at_1 / n:.0%}")
+    print(f"MRR (mittlerer reziproker Rang):            {sum(rrs) / n:.2f}")
+    print(f"Ø Recall über alle Stichwörter:            {sum(recalls) / n:.0%}")
     if misses:
         print(f"Verfehlt: {', '.join(misses)}")
     print("=" * 50)
