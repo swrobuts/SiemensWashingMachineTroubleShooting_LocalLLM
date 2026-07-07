@@ -73,3 +73,27 @@ def test_extract_error_codes_variants():
 def test_extract_error_codes_none():
     assert rag_engine.extract_error_codes("Wasser läuft aus") == set()
     assert rag_engine.extract_error_codes("") == set()
+
+
+class _StubNode:
+    def __init__(self, text):
+        self._t = text
+
+    def get_content(self):
+        return self._t
+
+
+class _StubSN:
+    def __init__(self, text):
+        self.node = _StubNode(text)
+
+
+def test_format_source_reference_heading_and_pages():
+    sns = [_StubSN("## Hinweise im Anzeigefeld\nAnzeige: E:18; Abhilfe: Laugenpumpe reinigen. ~ Seite 30")]
+    ref = rag_engine.format_source_reference(sns)
+    assert "Hinweise im Anzeigefeld" in ref
+    assert "Seite 30" in ref
+
+
+def test_format_source_reference_empty():
+    assert rag_engine.format_source_reference([]) == "Siemens Handbuch"

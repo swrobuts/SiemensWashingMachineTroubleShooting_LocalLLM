@@ -243,6 +243,36 @@ def make_retriever(index, vector_k: int = RETRIEVE_K):
     return _HybridRetriever()
 
 
+_PAGE_RE = re.compile(r"Seite\s+(\d{1,3})")
+
+
+def format_source_reference(source_nodes, max_pages: int = 3) -> str:
+    """Baut eine echte Quellenangabe aus den genutzten Chunks: Abschnitt + Seite(n).
+
+    Nutzt die ``~ Seite NN``-Verweise aus dem Handbuch. Verhindert die bisher
+    hart verdrahtete Pseudo-Referenz und macht Antworten überprüfbar.
+    """
+    if not source_nodes:
+        return "Siemens Handbuch"
+    heading = ""
+    for line in source_nodes[0].node.get_content().split("\n"):
+        s = line.strip()
+        if s.startswith("#"):
+            heading = s.lstrip("# ").strip()
+            break
+    pages: list[str] = []
+    for sn in source_nodes[:max_pages]:
+        for m in _PAGE_RE.finditer(sn.node.get_content()):
+            if m.group(1) not in pages:
+                pages.append(m.group(1))
+    ref = "Handbuch"
+    if heading:
+        ref += f": {heading}"
+    if pages:
+        ref += " · Seite " + "/".join(pages[:3])
+    return ref
+
+
 def make_query_engine(index, qa_template=None):
     """Query-Engine mit Hybrid-Retriever + Reranker (für server.py)."""
     from llama_index.core.query_engine import RetrieverQueryEngine

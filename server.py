@@ -145,6 +145,9 @@ def ask_ai():
 
         print(f"\n--- ROH-ANTWORT DER KI ---\n{antwort_text}\n--------------------------\n")
 
+        # Echte Quellenangabe aus den tatsächlich genutzten Handbuch-Abschnitten.
+        quelle = rag_engine.format_source_reference(getattr(antwort, "source_nodes", []))
+
         tts_text, man_content, int_content = parse_ai_response(antwort_text)
 
         response_data = {
@@ -154,7 +157,7 @@ def ask_ai():
                     "title": "📚 Handbuch / Manual",
                     "content": man_content,
                     "sourceType": "manual",
-                    "reference": "Siemens Manual",
+                    "reference": quelle,
                 }
             ],
         }
