@@ -274,7 +274,12 @@ def format_source_reference(source_nodes, max_pages: int = 3) -> str:
 
 
 def make_query_engine(index, qa_template=None):
-    """Query-Engine mit Hybrid-Retriever + Reranker (für server.py)."""
+    """Blockierende Query-Engine mit Hybrid-Retriever + Reranker (für /api/ask).
+
+    Hinweis: Für echtes Token-Streaming NICHT den Streaming-Modus dieser Engine
+    nutzen — der puffert und liefert erst am Ende alles auf einmal. server.py
+    streamt stattdessen das LLM direkt (siehe /api/ask_stream).
+    """
     from llama_index.core.query_engine import RetrieverQueryEngine
 
     reranker = get_reranker()

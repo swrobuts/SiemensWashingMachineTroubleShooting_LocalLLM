@@ -1,8 +1,10 @@
+import json
 import os
 import re
-from flask import Flask, request, jsonify
+from flask import Flask, Response, request, jsonify
 from flask_cors import CORS
 from llama_index.core import Settings, PromptTemplate
+from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai_like import OpenAILike
 
 import rag_engine
@@ -21,7 +23,9 @@ print("=" * 50 + "\n")
 #    OpenAILike statt OpenAI: erlaubt echte lokale Modellnamen (die OpenAI-Klasse
 #    hat eine Whitelist und nutzte sonst zufällig 'gpt-3.5-turbo' als Platzhalter).
 #    Modell/Endpoint per ENV überschreibbar.
-LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "qwen3.5-27b-claude-4.6-opus-distilled-mlx")
+# Default: schnelles Nicht-Reasoning-Instruct-Modell (Kiosk-tauglich, ~40 s statt
+# ~250 s beim 27B-Reasoning-Modell). Per ENV überschreibbar.
+LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "gemma-4-12b-it-mlx")
 LLM_ENDPOINT = os.getenv("LOCAL_LLM_ENDPOINT", "http://127.0.0.1:1234/v1")
 llm = OpenAILike(
     model=LLM_MODEL,
@@ -75,6 +79,12 @@ Antwort (NUR MIT XML-TAGS):"""
 qa_template = PromptTemplate(prompt_anweisung)
 # Hybrid-Retriever (Vektor + Fehlercode-Lookup) + Reranker.
 query_engine = rag_engine.make_query_engine(index, qa_template)
+
+# Für /api/ask_stream: Retriever + Reranker einmalig, LLM direkt streamen.
+# (Der LlamaIndex-Query-Engine-Streaming-Pfad puffert und streamt NICHT
+#  token-weise — deshalb umgehen wir ihn und rufen llm.stream_chat direkt.)
+_stream_retriever = rag_engine.make_retriever(index)
+_stream_reranker = rag_engine.get_reranker()
 print(
     f"🎯 Retrieval: hybrid top_k={rag_engine.RETRIEVE_K} → "
     + (f"Rerank({rag_engine.RERANK_MODEL}) → {rag_engine.FINAL_K}"
@@ -194,5 +204,73 @@ def ask_ai():
         })
 
 
+def _sse(event, data):
+    """Ein benanntes SSE-Event mit JSON-Payload (newline-sicher)."""
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@app.route("/api/ask_stream", methods=["POST"])
+def ask_ai_stream():
+    """Wie /api/ask, aber streamt die Antwort Token für Token via SSE.
+
+    Events: ``meta`` (Quelle) → viele ``token`` → ``result`` (strukturierte
+    Karten nach XML-Parsing) → ``[DONE]``. So sieht der Nutzer sofort Text,
+    statt minutenlang auf die fertige Antwort zu warten.
+    """
+    data = request.get_json()
+    frage = data.get("frage", "")
+    if not frage:
+        return jsonify({"error": "Keine Frage gestellt"}), 400
+
+    print(f"\n[stream] Neue Frage: '{frage}'")
+
+    def generate():
+        try:
+            # 1. Retrieval + Rerank (schnell) → Quelle sofort senden.
+            nodes = _stream_retriever.retrieve(frage)
+            if _stream_reranker:
+                nodes = _stream_reranker.postprocess_nodes(nodes, query_str=frage)
+            quelle = rag_engine.format_source_reference(nodes)
+            yield _sse("meta", {"reference": quelle})
+
+            # 2. Kontext bauen und das LLM DIREKT streamen (token-weise).
+            context_str = "\n\n".join(n.node.get_content() for n in nodes)
+            prompt = qa_template.format(context_str=context_str, query_str=frage)
+
+            parts = []
+            for ch in llm.stream_chat([ChatMessage(role="user", content=prompt)]):
+                delta = ch.delta or ""
+                if delta:
+                    parts.append(delta)
+                    yield _sse("token", delta)
+
+            raw = "".join(parts).strip()
+            tts_text, man_content, int_content = parse_ai_response(raw)
+            results = [{
+                "title": "📚 Handbuch / Manual",
+                "content": man_content,
+                "sourceType": "manual",
+                "reference": quelle,
+            }]
+            if int_content and len(int_content) > 5:
+                results.append({
+                    "title": "💡 Tipps / Tips",
+                    "content": int_content,
+                    "sourceType": "internet",
+                    "reference": "General Knowledge",
+                })
+            yield _sse("result", {"tts_summary": tts_text, "results": results})
+        except Exception as e:
+            print(f"🚨 [stream] Fehler: {e}")
+            yield _sse("error", {"message": str(e)})
+        yield "data: [DONE]\n\n"
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=3001)
+    app.run(host="0.0.0.0", port=3001, threaded=True)
