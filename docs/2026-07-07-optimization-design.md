@@ -75,6 +75,30 @@ und nur neu gebaut, wenn sich Quelle (`siemens_wissen.md`) oder Embedding-Konfig
 ### Phase 4 — Politur
 - `lokale_ki.py` aufräumen/entfernen, README, Doku.
 
+## Umsetzungsstand (2026-07-07)
+
+Gemessen auf der Zielmaschine (LM Studio, lokale Modelle):
+
+- **Phase 0 ✅** e5-Präfix-Fix, persistenter Index (Hash-Invalidierung), Eval-Harness.
+- **Phase 1 ✅** Reranking (bge-reranker-v2-m3), zeilenweises Tabellen-Chunking,
+  Hybrid-Fehlercode-Lookup. **Retrieval: Recall 64 %→96 %, MRR 0.73→1.00,
+  hit@1 70 %→100 %** (10 reale Störungsfragen, `eval/run_eval.py`).
+- **Phase 2a ✅** Echte Quellenzitate aus genutzten Abschnitten (`… · Seite NN`).
+- **Phase 2b ✅** Token-Streaming via SSE (`/api/ask_stream`) — LLM direkt
+  gestreamt (der LlamaIndex-Query-Engine-Streaming-Pfad puffert). Frontend zeigt
+  Quelle nach ~1 s und die Antwort live. Verifiziert: Quelle @1,3 s, 1. Token @7,2 s.
+- **LLM-Fix ✅** OpenAILike + explizites Modell. **Default `gemma-4-12b-it-mlx`**
+  (Nicht-Reasoning): ~40 s statt ~250 s beim 27B-Reasoning-Modell.
+
+**Zentraler Befund:** Für die *Antwort*-Latenz dominiert die **Modellwahl**.
+Reasoning-Modelle „denken" lange (`reasoning_content`) → 250 s; ein schnelles
+Instruct-Modell + Streaming ist für den Kiosk deutlich besser.
+
+### Offen (optional)
+- **Guardrail** „nicht im Handbuch" (braucht Schwellwert-Kalibrierung + Out-of-scope-Eval).
+- **Echte Mehrturn-Historie** serverseitig (der Frontend-String-Hack lebt noch).
+- **Polish:** `lokale_ki.py` entfernen/aufräumen, README.
+
 ## Verifikation
 
 End-to-End (Retrieval-Qualität, LLM-Antwort) braucht die Zielmaschine mit LM
