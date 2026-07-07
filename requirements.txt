@@ -4,7 +4,7 @@ flask-cors>=4.0
 
 # --- LlamaIndex RAG (lokal) ---
 llama-index-core>=0.11
-llama-index-llms-openai>=0.2          # OpenAI-kompatibler Client → LM Studio
+llama-index-llms-openai-like>=0.2     # LM Studio: erlaubt echte lokale Modellnamen
 llama-index-embeddings-huggingface>=0.3
 sentence-transformers>=3.0            # zieht torch; lokales Embedding (e5/bge)
 

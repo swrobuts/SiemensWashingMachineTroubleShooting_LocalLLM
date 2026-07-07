@@ -1,8 +1,9 @@
+import os
 import re
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from llama_index.core import Settings, PromptTemplate
-from llama_index.llms.openai import OpenAI
+from llama_index.llms.openai_like import OpenAILike
 
 import rag_engine
 
@@ -12,21 +13,28 @@ CORS(app)
 # ==========================================
 # VERSIONS-CHECK FÜR DAS TERMINAL
 print("\n" + "=" * 50)
-print("🚀 STARTE V13 — e5-Präfix-Fix + persistenter Index 🚀")
+print("🚀 STARTE V14 — OpenAILike (explizites Modell) + Hybrid-RAG 🚀")
 print("=" * 50 + "\n")
 # ==========================================
 
-# 1. Lokales Modell (LM Studio) anbinden
-llm = OpenAI(
-    api_base="http://127.0.0.1:1234/v1",
+# 1. Lokales Modell (LM Studio) anbinden.
+#    OpenAILike statt OpenAI: erlaubt echte lokale Modellnamen (die OpenAI-Klasse
+#    hat eine Whitelist und nutzte sonst zufällig 'gpt-3.5-turbo' als Platzhalter).
+#    Modell/Endpoint per ENV überschreibbar.
+LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "qwen3.5-27b-claude-4.6-opus-distilled-mlx")
+LLM_ENDPOINT = os.getenv("LOCAL_LLM_ENDPOINT", "http://127.0.0.1:1234/v1")
+llm = OpenAILike(
+    model=LLM_MODEL,
+    api_base=LLM_ENDPOINT,
     api_key="lm-studio",
+    is_chat_model=True,
+    context_window=8192,
     temperature=0.0,
-    # Großzügiges Timeout für langsame lokale Modelle (z. B. Qwen).
-    timeout=1200.0,
-    request_timeout=1200.0,
+    timeout=1200.0,  # großzügig für langsame lokale Modelle
     max_tokens=2048,
 )
 Settings.llm = llm
+print(f"🧠 LLM: {LLM_MODEL} @ {LLM_ENDPOINT}")
 
 # 2. Index bauen oder aus dem Cache laden.
 #    build_or_load_index() setzt Settings.embed_model (mit e5-Präfixen) und
