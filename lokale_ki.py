@@ -1,82 +1,79 @@
-from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, Settings
-from llama_index.llms.openai import OpenAI
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, Settings, PromptTemplate
-from llama_index.core.node_parser import MarkdownNodeParser
+"""CLI: Das Siemens-Handbuch lokal befragen — gleiche RAG-Pipeline wie server.py.
 
-print("🧠 Starte KI-System...")
+Nutzt den geteilten rag_engine (Hybrid-Retriever + Reranker + Quellenzitat) und
+streamt die Antwort direkt ins Terminal.
 
-# 1. Ihr lokales Gemma-Modell in LM Studio anbinden
-llm = OpenAI(
-    api_base="http://192.168.178.183:1234/v1",
-    api_key="lm-studio",  # LM Studio braucht einen Platzhalter-Key
-    temperature=0.1,      # Sehr analytisch, wenig "Fantasie" (perfekt für Handbücher)
-)
+Beispiele:
+    python3 lokale_ki.py "Was bedeutet Fehler E:23?"
+    python3 lokale_ki.py            # interaktiver Modus
 
-# 2. Lokales Embedding-Modell laden (läuft extrem schnell auf Apple Silicon)
-# Wir nutzen ein kleines, starkes Modell, das auch Deutsch gut versteht
-embed_model = HuggingFaceEmbedding(model_name="intfloat/multilingual-e5-small")
+Voraussetzungen: LM Studio läuft mit einem geladenen Modell (Port 1234).
+Konfiguration per ENV: LOCAL_LLM_MODEL, LOCAL_LLM_ENDPOINT, EMBED_MODEL, RERANK_MODEL.
+"""
+from __future__ import annotations
 
-# 3. LlamaIndex mitteilen, dass wir ab jetzt zu 100% lokal arbeiten!
-Settings.llm = llm
-Settings.embed_model = embed_model
+import os
+import sys
 
-print("📚 Lese Siemens-Wissen (Markdown) ein...")
-documents = SimpleDirectoryReader(input_files=["siemens_wissen.md"]).load_data()
+from llama_index.core import Settings
+from llama_index.core.llms import ChatMessage
+from llama_index.llms.openai_like import OpenAILike
 
-# NEU: Wir zerschneiden das Dokument intelligent anhand der Markdown-Überschriften
-print("✂️ Strukturiere das Dokument nach Kapiteln...")
-parser = MarkdownNodeParser()
-nodes = parser.get_nodes_from_documents(documents)
+import rag_engine
 
-print("🔍 Erstelle vektorbasiertes Gedächtnis...")
-index = VectorStoreIndex.from_documents(documents)
+MODEL = os.getenv("LOCAL_LLM_MODEL", "gemma-4-12b-it-mlx")
+ENDPOINT = os.getenv("LOCAL_LLM_ENDPOINT", "http://127.0.0.1:1234/v1")
 
-print("✅ System bereit!\n")
+PROMPT = """Du bist technischer Support für Siemens Waschmaschinen. Nutze NUR das
+Handbuch-Wissen unten. Antworte auf Deutsch, präzise, in Stichpunkten, und nenne
+konkrete Bauteile und Schritte. Fehlt die Information im Kontext, sage das ehrlich.
 
-# 4. Die Suchmaschine starten
-query_engine = index.as_query_engine(similarity_top_k=5)
-
-# NEU: Wir zwingen Gemma in das exakte API-Format für Ihr Frontend
-prompt_anweisung = """Du bist ein technischer Support-Mitarbeiter für Siemens Waschmaschinen.
-Hier sind die exakten Informationen aus dem offiziellen Handbuch:
+Handbuch-Kontext:
 ---------------------
-{context_str}
+{context}
 ---------------------
-Regeln für deine Antwort:
-1. Antworte ZWINGEND und AUSSCHLIESSLICH in einem gültigen JSON-Format.
-2. Das JSON muss ein Array "results" enthalten.
-3. Unterteile deine Antwort in zwei Blöcke: Erstens das Wissen strikt aus dem Handbuch ("manual"), zweitens allgemeine logische Tipps aus deinem Weltwissen ("internet").
-4. Das JSON muss exakt dieses Schema haben:
-{{
-  "results": [
-    {{
-      "title": "Laut Siemens Handbuch",
-      "content": "Deine detaillierten Stichpunkte basierend auf dem Handbuch-Text.",
-      "sourceType": "manual",
-      "reference": "Siemens Bedienungsanleitung"
-    }},
-    {{
-      "title": "Zusätzliche Tipps",
-      "content": "Weitere logische Ursachen (z.B. Flusensieb, Laugenpumpe), falls das Handbuch nicht reicht.",
-      "sourceType": "internet",
-      "reference": "Allgemeines Techniker-Wissen"
-    }}
-  ]
-}}
-
-Frage: {query_str}
+Frage: {frage}
 Antwort:"""
 
-# Den Prompt an die Suchmaschine übergeben
-qa_template = PromptTemplate(prompt_anweisung)
-query_engine.update_prompts({"response_synthesizer:text_qa_template": qa_template})
 
-# 5. Unsere Testfrage
-frage = "Wasser tritt unter der Maschine aus oder läuft aus. Was sind mögliche Ursachen und Lösungen?"
-print(f"\nFrage: {frage}\n")
-print("Gemma denkt nach...\n")
+def main() -> None:
+    Settings.llm = OpenAILike(
+        model=MODEL, api_base=ENDPOINT, api_key="lm-studio",
+        is_chat_model=True, context_window=8192,
+        temperature=0.0, max_tokens=800, timeout=600,
+    )
+    print(f"🧠 {MODEL} @ {ENDPOINT}")
+    index = rag_engine.build_or_load_index()
+    retriever = rag_engine.make_retriever(index)
+    reranker = rag_engine.get_reranker()
 
-antwort = query_engine.query(frage)
-print("🤖 Antwort von Gemma:")
-print(antwort)
+    def antworte(frage: str) -> None:
+        nodes = retriever.retrieve(frage)
+        if reranker:
+            nodes = reranker.postprocess_nodes(nodes, query_str=frage)
+        ctx = "\n\n".join(n.node.get_content() for n in nodes)
+        print(f"\n📚 Quelle: {rag_engine.format_source_reference(nodes)}\n")
+        prompt = PROMPT.format(context=ctx, frage=frage)
+        for ch in Settings.llm.stream_chat([ChatMessage(role="user", content=prompt)]):
+            sys.stdout.write(ch.delta or "")
+            sys.stdout.flush()
+        print("\n")
+
+    args = [a for a in sys.argv[1:] if a.strip()]
+    if args:
+        antworte(" ".join(args))
+        return
+
+    print("Interaktiver Modus — leere Eingabe beendet.")
+    while True:
+        try:
+            frage = input("\n❓ ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if not frage:
+            break
+        antworte(frage)
+
+
+if __name__ == "__main__":
+    main()
