@@ -1,0 +1,15 @@
+# --- Web / API ---
+flask>=3.0
+flask-cors>=4.0
+
+# --- LlamaIndex RAG (lokal) ---
+llama-index-core>=0.11
+llama-index-llms-openai>=0.2          # OpenAI-kompatibler Client → LM Studio
+llama-index-embeddings-huggingface>=0.3
+sentence-transformers>=3.0            # zieht torch; lokales Embedding (e5/bge)
+
+# --- Dokument-Extraktion (parser.py) ---
+docling>=2.0
+
+# --- Tests ---
+pytest>=8.0

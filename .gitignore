@@ -21,6 +21,8 @@ models/
 .cache/
 chroma/
 *.sqlite3
+storage/          # persistenter LlamaIndex-Vektorindex (wird lokal neu gebaut)
+.pytest_cache/
 
 # --- OS ---
 .DS_Store

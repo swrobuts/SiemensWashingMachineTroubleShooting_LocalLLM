@@ -1,0 +1,55 @@
+{
+  "_comment": "Grounded eval set — erwartete Stichwörter stammen direkt aus den Tabellen 'Hinweise im Anzeigefeld' und 'Störungen, was tun?' in siemens_wissen.md. 'expect' = Retrieval gilt als Treffer, wenn mindestens eines der Stichwörter im abgerufenen Kontext vorkommt (case-insensitive).",
+  "questions": [
+    {
+      "id": "wasser-austritt",
+      "frage": "Wasser läuft unter meiner Waschmaschine aus, was kann ich tun?",
+      "expect": ["ablaufschlauch", "zulaufschlauch", "verschraubung", "bodenwanne", "undichtigkeit"]
+    },
+    {
+      "id": "fehler-e18",
+      "frage": "Was bedeutet der Fehlercode E:18?",
+      "expect": ["laugenpumpe", "verstopft", "ablaufschlauch", "abflussrohr"]
+    },
+    {
+      "id": "fehler-e23",
+      "frage": "Meine Maschine zeigt E:23 an. Was ist das Problem?",
+      "expect": ["bodenwanne", "undichtigkeit", "wasserhahn", "kundendienst"]
+    },
+    {
+      "id": "kein-abpumpen",
+      "frage": "Die Waschlauge wird nicht abgepumpt.",
+      "expect": ["laugenpumpe", "abflussrohr", "ablaufschlauch", "spülstopp"]
+    },
+    {
+      "id": "kein-wassereinlauf",
+      "frage": "Es läuft kein Wasser in die Maschine ein.",
+      "expect": ["wasserhahn", "sieb", "zulaufschlauch", "geknickt"]
+    },
+    {
+      "id": "tuer-oeffnet-nicht",
+      "frage": "Das Einfüllfenster lässt sich nicht öffnen.",
+      "expect": ["notentriegelung", "sicherheitsfunktion", "spülstopp"]
+    },
+    {
+      "id": "programm-startet-nicht",
+      "frage": "Das Programm startet einfach nicht.",
+      "expect": ["einfüllfenster", "kindersicherung", "taste"]
+    },
+    {
+      "id": "zu-viel-schaum",
+      "frage": "Es bildet sich viel zu viel Schaum in der Maschine.",
+      "expect": ["schaum", "waschmittel", "spülgänge", "dosieren"]
+    },
+    {
+      "id": "kindersicherung",
+      "frage": "Wie schalte ich die Kindersicherung wieder aus?",
+      "expect": ["kindersicherung", "deaktivieren"]
+    },
+    {
+      "id": "trommel-reinigen",
+      "frage": "Wie reinige ich die Trommel meiner Waschmaschine?",
+      "expect": ["trommel reinigen", "pulvervollwaschmittel", "bleichehaltiges", "laugenbehälter"]
+    }
+  ]
+}
