@@ -77,19 +77,40 @@ Nutzerfrage: {query_str}
 Antwort (NUR MIT XML-TAGS):"""
 
 qa_template = PromptTemplate(prompt_anweisung)
-# Hybrid-Retriever (Vektor + Fehlercode-Lookup) + Reranker.
-query_engine = rag_engine.make_query_engine(index, qa_template)
 
-# Für /api/ask_stream: Retriever + Reranker einmalig, LLM direkt streamen.
+# Retriever + Reranker einmalig; beide Endpunkte streamen/rufen das LLM direkt.
 # (Der LlamaIndex-Query-Engine-Streaming-Pfad puffert und streamt NICHT
 #  token-weise — deshalb umgehen wir ihn und rufen llm.stream_chat direkt.)
 _stream_retriever = rag_engine.make_retriever(index)
 _stream_reranker = rag_engine.get_reranker()
-print(
-    f"🎯 Retrieval: hybrid top_k={rag_engine.RETRIEVE_K} → "
-    + (f"Rerank({rag_engine.RERANK_MODEL}) → {rag_engine.FINAL_K}"
-       if rag_engine.ENABLE_RERANK else "kein Rerank")
-)
+
+# Retrieval-Modus umschaltbar: "hybrid" (Vektor+Rerank) oder "pageindex"
+# (vectorless, reasoning-based Baum-Navigation). Beide liefern (context, grounded, quelle).
+RETRIEVAL_MODE = os.getenv("RETRIEVAL_MODE", "hybrid")
+if RETRIEVAL_MODE == "pageindex":
+    import pageindex_engine
+    pageindex_engine.load_tree()
+    _pi_complete = lambda p: llm.complete(p).text  # nutzt dasselbe LM-Studio-Modell
+    print(f"🎯 Retrieval: PageIndex (vectorless) | Tree {pageindex_engine.TREE_PATH}")
+else:
+    print(
+        f"🎯 Retrieval: hybrid top_k={rag_engine.RETRIEVE_K} → "
+        + (f"Rerank({rag_engine.RERANK_MODEL}) → {rag_engine.FINAL_K}"
+           if rag_engine.ENABLE_RERANK else "kein Rerank")
+    )
+
+
+def _retrieve_context(frage: str):
+    """Einheitliche Retrieval-Schnittstelle → (context_str, grounded, quelle)."""
+    if RETRIEVAL_MODE == "pageindex":
+        ctx, nodes = pageindex_engine.retrieve_context(frage, complete=_pi_complete)
+        return ctx, pageindex_engine.is_grounded(nodes), pageindex_engine.format_source_reference(nodes)
+    nodes = _stream_retriever.retrieve(frage)
+    if _stream_reranker:
+        nodes = _stream_reranker.postprocess_nodes(nodes, query_str=frage)
+    ctx = "\n\n".join(n.node.get_content() for n in nodes)
+    return ctx, rag_engine.is_grounded(nodes), rag_engine.format_source_reference(nodes)
+
 
 print("✅ System bereit!")
 print("🌐 Der lokale Server lauscht jetzt auf http://localhost:3001")
@@ -157,11 +178,9 @@ def ask_ai():
 
     print(f"\nNeue Frage von der Webseite erhalten: '{frage}'")
 
-    # Guardrail: Frage nicht vom Handbuch gedeckt → nicht halluzinieren.
-    _g_nodes = _stream_retriever.retrieve(frage)
-    if _stream_reranker:
-        _g_nodes = _stream_reranker.postprocess_nodes(_g_nodes, query_str=frage)
-    if not rag_engine.is_grounded(_g_nodes):
+    # Retrieval (Modus-abhängig) + Guardrail.
+    context_str, grounded, quelle = _retrieve_context(frage)
+    if not grounded:
         return jsonify({
             "tts_summary": rag_engine.NOT_IN_MANUAL,
             "results": [{
@@ -173,13 +192,10 @@ def ask_ai():
         })
 
     try:
-        antwort = query_engine.query(frage)
-        antwort_text = str(antwort).strip()
+        prompt = qa_template.format(context_str=context_str, query_str=frage)
+        antwort_text = llm.chat([ChatMessage(role="user", content=prompt)]).message.content.strip()
 
         print(f"\n--- ROH-ANTWORT DER KI ---\n{antwort_text}\n--------------------------\n")
-
-        # Echte Quellenangabe aus den tatsächlich genutzten Handbuch-Abschnitten.
-        quelle = rag_engine.format_source_reference(getattr(antwort, "source_nodes", []))
 
         tts_text, man_content, int_content = parse_ai_response(antwort_text)
 
@@ -241,13 +257,11 @@ def ask_ai_stream():
 
     def generate():
         try:
-            # 1. Retrieval + Rerank (schnell) → Quelle sofort senden.
-            nodes = _stream_retriever.retrieve(frage)
-            if _stream_reranker:
-                nodes = _stream_reranker.postprocess_nodes(nodes, query_str=frage)
+            # 1. Retrieval (Modus-abhängig) → Quelle sofort senden.
+            context_str, grounded, quelle = _retrieve_context(frage)
 
             # Guardrail: Frage nicht vom Handbuch gedeckt → nicht halluzinieren.
-            if not rag_engine.is_grounded(nodes):
+            if not grounded:
                 yield _sse("meta", {"reference": ""})
                 yield _sse("result", {
                     "tts_summary": rag_engine.NOT_IN_MANUAL,
@@ -261,11 +275,9 @@ def ask_ai_stream():
                 yield "data: [DONE]\n\n"
                 return
 
-            quelle = rag_engine.format_source_reference(nodes)
             yield _sse("meta", {"reference": quelle})
 
-            # 2. Kontext bauen und das LLM DIREKT streamen (token-weise).
-            context_str = "\n\n".join(n.node.get_content() for n in nodes)
+            # 2. Das LLM DIREKT streamen (token-weise).
             prompt = qa_template.format(context_str=context_str, query_str=frage)
 
             parts = []

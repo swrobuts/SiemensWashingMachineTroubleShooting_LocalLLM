@@ -11,5 +11,12 @@ sentence-transformers>=3.0            # zieht torch; lokales Embedding (e5/bge)
 # --- Dokument-Extraktion (parser.py) ---
 docling>=2.0
 
+# --- PageIndex (vectorless, reasoning-based Retrieval; Paket vendored in pageindex/) ---
+litellm>=1.84          # LLM-Abstraktion, lm_studio-Provider → lokal
+pymupdf>=1.26
+PyPDF2>=3.0
+pyyaml>=6.0
+python-dotenv>=1.0
+
 # --- Tests ---
 pytest>=8.0
