@@ -604,7 +604,7 @@
         document.querySelectorAll('.mode-opt').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
         document.getElementById('modeHint').textContent = m === 'pageindex'
             ? 'reasoning-basiert · erklärbar · langsam · tokenintensiv'
-            : 'Vektor + Reranking · schnell · retrieval ohne LLM';
+            : '';
     }
 
     async function loadModes() {
