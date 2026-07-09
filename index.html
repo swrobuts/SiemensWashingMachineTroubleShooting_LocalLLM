@@ -401,7 +401,8 @@
         .an-note { font-size: 12.5px; color: #999; margin-top: 4px; }
         .cmp { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
         .cmp th, .cmp td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border-color); }
-        .cmp th { color: #777; font-weight: 600; text-transform: uppercase; font-size: 11.5px; letter-spacing: .5px; }
+        .cmp th { color: #777; font-weight: 600; text-transform: uppercase; font-size: 11.5px; letter-spacing: .5px; vertical-align: top; }
+        .cmp th .th-sub { display: block; text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 10.5px; color: #9aa2ac; margin-top: 2px; }
         .cmp td.metric { color: #555; }
         .cmp td .val { font-weight: bold; color: var(--siemens-navy); font-variant-numeric: tabular-nums; }
         .cmp .better { color: #2E9E5B; }
@@ -559,7 +560,7 @@
       <div id="tokenViz"></div>
 
       <h3>Kostenersparnis gegenüber einem Cloud-Modell</h3>
-      <p class="an-note">Was dieselbe Anfrage über ein Cloud-Modell kosten würde (Anthropic-Preise, US-$). Lokal fällt kein API-Preis an (nur Strom).</p>
+      <p class="an-note"><b>Der lokale Betrieb kostet nichts</b> — Hybrid wie PageIndex laufen auf diesem Rechner mit <b>$0 API-Kosten</b> (nur Strom). Die Cloud-Beträge unten sind <b>hypothetisch</b>: so viel würde <b>dieselbe</b> Anfrage kosten, wenn sie statt lokal über ein Cloud-Modell liefe. Das ist die <b>vermiedene</b> Kostensumme = deine Ersparnis. Es wird nichts abgerechnet (Anthropic-Preise, US-$).</p>
       <div class="cost-controls">
         <span class="mode-label">Cloud-Modell zum Vergleich:</span>
         <select id="cloudModel" onchange="renderCost()"></select>
@@ -626,7 +627,7 @@
         if (pricing && pricing.cloud && pricing.cloud[0]) {
             const m = pricing.cloud[0];
             const inTok = (u.retrieval || 0) + (u.answer_in || 0), outTok = (u.answer_out || 0);
-            cloud = ` · auf ${m.label} ~${usd(inTok / 1e6 * m.in + outTok / 1e6 * m.out)}, lokal $0`;
+            cloud = ` · lokal $0 (hypothetisch auf ${m.label}: ~${usd(inTok / 1e6 * m.in + outTok / 1e6 * m.out)} gespart)`;
         }
         el.innerHTML = `Diese Antwort · Modus <b>${u.mode}</b> · <b>${f(u.total)}</b> Tokens `
             + `(Retrieval ${f(u.retrieval)} + Antwort ${f((u.answer_in || 0) + (u.answer_out || 0))})${cloud}`;
@@ -661,10 +662,11 @@
         const cH = costPerQuery(comparison.hybrid.tokens, model);
         const cP = costPerQuery(comparison.pageindex.tokens, model);
 
-        // Tabelle: Kosten je Skalierung
+        // Tabelle: tatsächlich (lokal $0) vs. hypothetischer Cloud-Preis = vermiedene Kosten
         const rows = [['1 Frage', cH, cP], ['1.000 Fragen', cH * 1e3, cP * 1e3], ['10.000 Fragen', cH * 1e4, cP * 1e4]];
-        let html = `<table class="cmp"><thead><tr><th>Pro …</th><th>Lokal</th>`
-            + `<th>Hybrid auf ${model.label}</th><th>PageIndex auf ${model.label}</th></tr></thead><tbody>`;
+        let html = `<table class="cmp"><thead><tr><th>Pro …</th><th>Lokal<br><span class="th-sub">tatsächlich</span></th>`
+            + `<th>Hybrid → ${model.label}<br><span class="th-sub">hypothetisch = vermieden</span></th>`
+            + `<th>PageIndex → ${model.label}<br><span class="th-sub">hypothetisch = vermieden</span></th></tr></thead><tbody>`;
         for (const [lbl, a, b] of rows) {
             html += `<tr><td class="metric">${lbl}</td>`
                 + `<td><span class="val better">$0,00</span></td>`
@@ -673,11 +675,11 @@
         }
         html += '</tbody></table>';
 
-        // Tufte-Balken: Kosten je 1.000 Fragen (lokal, Hybrid, PageIndex)
-        const vals = [['Lokal', 0, '#B9C0C9'], ['Hybrid → Cloud', cH * 1e3, '#00AAB4'], ['PageIndex → Cloud', cP * 1e3, '#D98A0B']];
+        // Tufte-Balken: vermiedene (hypothetische) Cloud-Kosten je 1.000 Fragen
+        const vals = [['Lokal (real)', 0, '#B9C0C9'], ['Hybrid → Cloud', cH * 1e3, '#00AAB4'], ['PageIndex → Cloud', cP * 1e3, '#D98A0B']];
         const max = cP * 1e3 || 1, W = 760, L = 130, R = 90, barW = W - L - R, bh = 24;
         let s = `<svg viewBox="0 0 ${W} 132" style="width:100%;height:auto;margin-top:10px;font-family:'Helvetica Neue',Arial,sans-serif">`;
-        s += `<text x="${L}" y="14" font-size="11" fill="#999">Kosten je 1.000 Fragen (US-$)</text>`;
+        s += `<text x="${L}" y="14" font-size="11" fill="#999">Vermiedene Cloud-Kosten je 1.000 Fragen (US-$, hypothetisch)</text>`;
         vals.forEach(([lbl, v, col], i) => {
             const y = 26 + i * 32, w = barW * v / max;
             s += `<text x="${L - 10}" y="${y + 16}" text-anchor="end" font-size="12" fill="#000028" font-weight="bold">${lbl}</text>`;
@@ -687,9 +689,10 @@
         s += `</svg>`;
 
         const ratio = cH > 0 ? (cP / cH) : 0;
-        s += `<p class="kpi"><b>Ersparnis durch lokalen Betrieb: 100 % der API-Kosten.</b> `
-            + `Auf ${model.label} kostete 1.000 Fragen ~${usd(cH * 1e3)} (Hybrid) bzw. ~${usd(cP * 1e3)} (PageIndex) — lokal $0. `
-            + `PageIndex ist in der Cloud ~${ratio.toFixed(1)}× so teuer wie Hybrid (tokenintensiv).</p>`;
+        s += `<p class="kpi"><b>Lokal fallen $0 API-Kosten an — die Ersparnis beträgt 100 %.</b> `
+            + `Dieselben 1.000 Fragen <i>würden</i> auf ${model.label} ~${usd(cH * 1e3)} (Hybrid) bzw. ~${usd(cP * 1e3)} (PageIndex) kosten; `
+            + `genau diesen Betrag sparst du, weil alles lokal läuft. `
+            + `PageIndex wäre in der Cloud ~${ratio.toFixed(1)}× so teuer wie Hybrid (tokenintensiv).</p>`;
 
         document.getElementById('costViz').innerHTML = html + s;
     }
