@@ -236,6 +236,27 @@ def d8():
     plt.close(fig); print("✔ d8_eval.png")
 
 
-for f in (d1, d2, d3, d4, d5, d6, d7, d8):
+# ── D9: PageIndex (vectorless) ──────────────────────────────────────────────
+def d9():
+    fig, ax = new(12, 6.4)
+    title(ax, "PageIndex — vectorless, reasoning-based Retrieval")
+    box(ax, 12, 60, 15, 12, "Nutzer-\nfrage", fc=NAVY, tc=WHITE, bold=True)
+    # Tree-Index (Abschnitte + Summaries)
+    ax.text(38, 84, "Tree-Index (offline gebaut)", ha="center", fontsize=9.5, color=NAVY, fontweight="bold")
+    for i, t in enumerate(["Abschnitt: Anzeigefeld — Summary …", "Abschnitt: Störungen — Summary …",
+                            "Abschnitt: Trommel reinigen — Summary …", "…  (187 Abschnitte)"]):
+        box(ax, 38, 76 - i * 6.5, 34, 5.4, t, fc="#EEF1F4", ec="#AAB", fs=8)
+    box(ax, 66, 60, 15, 13, "LLM\nnavigiert\n(wählt node_ids)", fc=AMBER, tc=WHITE, bold=True, fs=9)
+    box(ax, 89, 60, 16, 12, "Knoten-Text\n= Kontext", fc=CYAN, tc=WHITE, bold=True)
+    arrow(ax, 19.5, 60, 20, 60)
+    arrow(ax, 55, 66, 59, 62, rad=-0.1); arrow(ax, 20, 56, 58, 58, rad=-0.05)
+    arrow(ax, 74, 60, 81, 60)
+    ax.text(50, 24, "Kein Embedding, keine Vektor-Ähnlichkeit — die Auswahl ist erklärbar.\n"
+            "Stärke bei großen, tief hierarchischen Dokumenten; Kosten: LLM-Calls pro Frage.",
+            ha="center", fontsize=9.5, color="#555", style="italic")
+    save(fig, "d9_pageindex.png")
+
+
+for f in (d1, d2, d3, d4, d5, d6, d7, d8, d9):
     f()
 print("\nAlle Diagramme in", OUT)

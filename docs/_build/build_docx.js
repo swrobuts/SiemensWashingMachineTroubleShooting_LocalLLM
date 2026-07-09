@@ -166,6 +166,26 @@ children.push(P([
 ]));
 children.push(...figure("d4_pipeline.png", "Abbildung 5: Abfrage-Pipeline — das Guardrail entscheidet vor dem Sprachmodell."));
 
+children.push(H2("3.3 Alternatives Retrieval — PageIndex (vectorless)"));
+children.push(P([
+  bold("PageIndex"), txt(" (VectifyAI) ist ein reasoning-basiertes Retrieval ohne Embeddings: Offline wird ein hierarchischer "),
+  bold("Tree-Index"), txt(" (Inhaltsverzeichnis mit Zusammenfassungen) gebaut; zur Laufzeit navigiert ein Sprachmodell diesen Baum und wählt die relevanten Abschnitte aus — wie ein Mensch, der ein Inhaltsverzeichnis nutzt. Die Auswahl ist dadurch nachvollziehbar. Läuft vollständig lokal (LiteLLM zu LM Studio) und ist per "),
+  code("RETRIEVAL_MODE=pageindex"), txt(" aktivierbar."),
+]));
+children.push(...figure("d9_pageindex.png", "Abbildung 6: PageIndex — das Sprachmodell navigiert den Abschnitts-Baum, statt Vektor-Ähnlichkeit zu berechnen."));
+children.push(P("Direkter Vergleich auf denselben 10 Fragen (lokal gemessen):"));
+children.push(table([
+  ["Metrik", "Hybrid + Reranking", "PageIndex (vectorless)"],
+  ["Trefferquote", "100 %", "100 %"],
+  ["hit@1", "100 %", "70 %"],
+  ["MRR", "1,00", "0,82"],
+  ["Ø Recall", "96 %", "88 %"],
+  ["Latenz je Frage", "~sofort (LLM-frei)", "~104 s (7 LLM-Calls)"],
+], [2600, 3380, 3380]));
+children.push(new Paragraph({ spacing: { before: 120 }, children: [new TextRun({
+  text: "Beide finden die Fehlercodes zuverlässig. Auf diesem kleinen, flachen Handbuch ist Hybrid schneller und rankt präziser; PageIndex ist der erklärbare, reasoning-basierte Ansatz und spielt seine Stärke bei großen, tief hierarchisch gegliederten Dokumenten aus.",
+  italics: true, size: 20, color: "555555" })] }));
+
 // ── 4. Guardrail ──
 children.push(H1("4. Guardrail — Schutz vor Halluzination"));
 children.push(P([
@@ -173,7 +193,7 @@ children.push(P([
   txt(". Liegt der beste Score unter der Schwelle "), code("0.15"), txt(", wird "), bold("ohne Sprachmodell-Aufruf"),
   txt(" mit „das steht nicht im Handbuch“ geantwortet. Als zweite Schicht weist der Prompt das Modell an, bei fehlender Information ehrlich zu sein."),
 ]));
-children.push(...figure("d6_guardrail.png", "Abbildung 6: Guardrail — kalibrierte Score-Schwelle trennt In- und Out-of-Scope."));
+children.push(...figure("d6_guardrail.png", "Abbildung 7: Guardrail — kalibrierte Score-Schwelle trennt In- und Out-of-Scope."));
 
 // ── 5. Antwort/Streaming ──
 children.push(H1("5. Antwortgenerierung und Streaming"));
@@ -186,7 +206,7 @@ children.push(P([
 children.push(P([
   txt("Die Antwort wird per "), bold("Server-Sent Events (SSE)"), txt(" gestreamt: Der Nutzer sieht die Quelle nach ~1 Sekunde und die Antwort beim Entstehen — statt minutenlang auf einen Spinner zu warten. Da der eingebaute Streaming-Pfad der RAG-Bibliothek puffert, wird das Sprachmodell direkt gestreamt."),
 ]));
-children.push(...figure("d7_streaming.png", "Abbildung 7: Streaming-Ablauf — Quelle sofort, Antwort Token für Token."));
+children.push(...figure("d7_streaming.png", "Abbildung 8: Streaming-Ablauf — Quelle sofort, Antwort Token für Token."));
 
 // ── 6. Evaluation ──
 children.push(new Paragraph({ children: [new PageBreak()] }));
@@ -195,7 +215,7 @@ children.push(P([
   txt("Ein Eval-Skript misst die "), bold("Retrieval-Qualität ohne Sprachmodell"),
   txt(" an 10 realen Störungsfragen, deren erwartete Stichwörter aus den echten Handbuch-Tabellen stammen. Verglichen wird die Ausgangsversion mit der optimierten Version (auf der Zielmaschine gemessen):"),
 ]));
-children.push(...figure("d8_eval.png", "Abbildung 8: Retrieval-Qualität vorher/nachher."));
+children.push(...figure("d8_eval.png", "Abbildung 9: Retrieval-Qualität vorher/nachher."));
 children.push(table([
   ["Metrik", "Bedeutung", "Original", "Final"],
   ["hit@1", "Oberster Chunk ist der richtige", "40 %", "100 %"],

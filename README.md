@@ -69,6 +69,13 @@ python3 lokale_ki.py "Was bedeutet Fehler E:23?"
 python3 lokale_ki.py       # interaktiver Modus
 ```
 
+**Retrieval-Modus PageIndex** (vectorless, reasoning-based; VectifyAI, lokal):
+```bash
+python3 build_pageindex_tree.py                 # einmalig: Tree-Index bauen
+RETRIEVAL_MODE=pageindex python3 server.py      # Server im PageIndex-Modus
+python3 eval/run_eval_pageindex.py              # PageIndex-Eval (mit LLM)
+```
+
 **3. Retrieval-Qualität messen** (braucht *kein* LM Studio):
 ```bash
 python3 eval/run_eval.py                 # Hybrid + Reranking
@@ -79,6 +86,7 @@ python3 eval/run_eval.py --no-rerank     # nur Vektor (A/B-Vergleich)
 
 | Variable | Default | Zweck |
 |----------|---------|-------|
+| `RETRIEVAL_MODE` | `hybrid` | `hybrid` (Vektor+Rerank) oder `pageindex` (vectorless) |
 | `LOCAL_LLM_MODEL` | `gemma-4-12b-it-mlx` | Modellname in LM Studio |
 | `LOCAL_LLM_ENDPOINT` | `http://127.0.0.1:1234/v1` | LM-Studio-Endpoint |
 | `EMBED_MODEL` | `intfloat/multilingual-e5-small` | lokales Embedding (Index rebuildet bei Wechsel) |

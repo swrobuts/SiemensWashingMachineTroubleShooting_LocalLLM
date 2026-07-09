@@ -32,8 +32,11 @@ Embeddings, keine Cloud, DSGVO-konform).
 ## Nicht-Ziele / Entscheidungen
 
 - **Docling bleibt** als Extraktion.
-- **PageIndex: nein** — 115 KB sind für gutes Chunking + Reranking zu klein;
-  Aufwand lohnt erst bei viel größeren Handbüchern.
+- **PageIndex: implementiert** als umschaltbarer, vectorless Retrieval-Modus
+  (`RETRIEVAL_MODE=pageindex`, VectifyAI, lokal via LiteLLM/LM Studio). Auf diesem
+  kleinen, flachen Handbuch ist Hybrid+Reranking schneller/präziser (hit@1 100 %
+  vs. 70 %, ~sofort vs. ~104 s), PageIndex ist der erklärbare reasoning-basierte
+  Ansatz. Details: `docs/TECHNICAL.md`, Kapitel 3.B/3.C.
 - **Cloud: nein** — alles bleibt lokal.
 
 ## Architektur-Zielbild
