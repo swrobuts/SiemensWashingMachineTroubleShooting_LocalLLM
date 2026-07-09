@@ -394,14 +394,22 @@ _COMPARISON = {
     "hybrid": {
         "label": "Hybrid + Reranking",
         "hit1": 100, "mrr": 1.00, "recall": 96, "latency_s": 2,
-        "tokens": {"retrieval": 0, "answer": 1262, "total": 1262},
+        # Token exakt gemessen (Beispiel E:18). input/output für die Kostenrechnung.
+        "tokens": {"retrieval": 0, "answer": 1237, "input": 804, "output": 433, "total": 1237},
     },
     "pageindex": {
         "label": "PageIndex (vectorless)",
         "hit1": 70, "mrr": 0.82, "recall": 88, "latency_s": 104,
-        "tokens": {"retrieval": 12261, "answer": 2822, "total": 15083},
+        "tokens": {"retrieval": 12300, "answer": 2954, "input": 14851, "output": 403, "total": 15254},
     },
 }
+
+# Cloud-Preise (US-Dollar je 1 Mio. Token, Stand Anthropic-Referenz). Lokal = 0.
+_CLOUD_PRICING = [
+    {"id": "claude-opus-4-8", "label": "Claude Opus 4.8", "in": 5.0, "out": 25.0},
+    {"id": "claude-sonnet-5", "label": "Claude Sonnet 5", "in": 3.0, "out": 15.0},
+    {"id": "claude-haiku-4-5", "label": "Claude Haiku 4.5", "in": 1.0, "out": 5.0},
+]
 
 
 @app.route("/api/modes", methods=["GET"])
@@ -410,6 +418,7 @@ def api_modes():
         "default": DEFAULT_MODE,
         "pageindex_available": _pi_available,
         "comparison": _COMPARISON,
+        "pricing": {"currency": "USD", "cloud": _CLOUD_PRICING, "local_note": "lokal = 0 (nur Strom)"},
     })
 
 

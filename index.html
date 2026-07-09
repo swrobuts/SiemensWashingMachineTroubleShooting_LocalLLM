@@ -403,6 +403,10 @@
         .cmp .better { color: #2E9E5B; }
         .cmp .worse { color: #C0392B; }
         .arch-note { font-size: 12px; color: #999; margin: 6px 0 0; }
+        .cost-controls { display: flex; align-items: center; gap: 10px; margin: 16px 0 6px; flex-wrap: wrap; }
+        .cost-controls select { padding: 7px 10px; border: 1px solid var(--border-color); font-size: 14px; background: #fff; color: var(--siemens-navy); }
+        .kpi { font-size: 14px; color: var(--siemens-navy); margin-top: 10px; }
+        .kpi b { color: #2E9E5B; }
     </style>
 </head>
 <body>
@@ -547,6 +551,14 @@
       <h3>Tokenverbrauch je Frage</h3>
       <p class="an-note">Real gemessen (Beispiel „Fehler E:18", gemma-4-12b). Aufgeteilt in Retrieval (Kontextsuche) und Antwort-Generierung.</p>
       <div id="tokenViz"></div>
+
+      <h3>Kostenersparnis gegenüber einem Cloud-Modell</h3>
+      <p class="an-note">Was dieselbe Anfrage über ein Cloud-Modell kosten würde (Anthropic-Preise, US-$). Lokal fällt kein API-Preis an (nur Strom).</p>
+      <div class="cost-controls">
+        <span class="mode-label">Cloud-Modell zum Vergleich:</span>
+        <select id="cloudModel" onchange="renderCost()"></select>
+      </div>
+      <div id="costViz"></div>
     </section>
   </div>
 </main>
@@ -559,6 +571,7 @@
     let currentMode = 'hybrid';
     let pageindexAvailable = false;
     let comparison = null;
+    let pricing = null;
     let analysisRendered = false;
 
     window.onload = function() {
@@ -592,6 +605,7 @@
             const d = await (await fetch(API + '/api/modes')).json();
             pageindexAvailable = !!d.pageindex_available;
             comparison = d.comparison;
+            pricing = d.pricing;
             const piBtn = document.querySelector('.mode-opt[data-mode="pageindex"]');
             if (!pageindexAvailable) { piBtn.disabled = true; piBtn.title = 'Tree-Index nicht gebaut'; }
             setMode(d.default || 'hybrid');
@@ -602,8 +616,14 @@
         const el = document.getElementById('usageLine');
         if (!el || !u) return;
         const f = n => (n || 0).toLocaleString('de-DE');
+        let cloud = '';
+        if (pricing && pricing.cloud && pricing.cloud[0]) {
+            const m = pricing.cloud[0];
+            const inTok = (u.retrieval || 0) + (u.answer_in || 0), outTok = (u.answer_out || 0);
+            cloud = ` · auf ${m.label} ~${usd(inTok / 1e6 * m.in + outTok / 1e6 * m.out)}, lokal $0`;
+        }
         el.innerHTML = `Diese Antwort · Modus <b>${u.mode}</b> · <b>${f(u.total)}</b> Tokens `
-            + `(Retrieval ${f(u.retrieval)} + Antwort ${f((u.answer_in || 0) + (u.answer_out || 0))})`;
+            + `(Retrieval ${f(u.retrieval)} + Antwort ${f((u.answer_in || 0) + (u.answer_out || 0))})${cloud}`;
     }
 
     // ── Analyse-Registerkarte ─────────────────────────────────────────────
@@ -614,7 +634,58 @@
         }
         buildCmpTable(comparison);
         buildTokenViz(comparison);
+        if (pricing) {
+            const sel = document.getElementById('cloudModel');
+            sel.innerHTML = pricing.cloud.map(m => `<option value="${m.id}">${m.label} ($${m.in}/$${m.out} pro 1M)</option>`).join('');
+            renderCost();
+        }
         analysisRendered = true;
+    }
+
+    // ── Kostenvergleich lokal vs. Cloud (Tufte/Bissantz) ──────────────────
+    function costPerQuery(tokens, model) {
+        return tokens.input / 1e6 * model.in + tokens.output / 1e6 * model.out;
+    }
+    const usd = v => '$' + (v >= 1 ? v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : v.toFixed(4));
+
+    function renderCost() {
+        if (!comparison || !pricing) return;
+        const sel = document.getElementById('cloudModel');
+        const model = pricing.cloud.find(m => m.id === sel.value) || pricing.cloud[0];
+        const cH = costPerQuery(comparison.hybrid.tokens, model);
+        const cP = costPerQuery(comparison.pageindex.tokens, model);
+
+        // Tabelle: Kosten je Skalierung
+        const rows = [['1 Frage', cH, cP], ['1.000 Fragen', cH * 1e3, cP * 1e3], ['10.000 Fragen', cH * 1e4, cP * 1e4]];
+        let html = `<table class="cmp"><thead><tr><th>Pro …</th><th>Lokal</th>`
+            + `<th>Hybrid auf ${model.label}</th><th>PageIndex auf ${model.label}</th></tr></thead><tbody>`;
+        for (const [lbl, a, b] of rows) {
+            html += `<tr><td class="metric">${lbl}</td>`
+                + `<td><span class="val better">$0,00</span></td>`
+                + `<td><span class="val">${usd(a)}</span></td>`
+                + `<td><span class="val">${usd(b)}</span></td></tr>`;
+        }
+        html += '</tbody></table>';
+
+        // Tufte-Balken: Kosten je 1.000 Fragen (lokal, Hybrid, PageIndex)
+        const vals = [['Lokal', 0, '#B9C0C9'], ['Hybrid → Cloud', cH * 1e3, '#00AAB4'], ['PageIndex → Cloud', cP * 1e3, '#D98A0B']];
+        const max = cP * 1e3 || 1, W = 760, L = 130, R = 90, barW = W - L - R, bh = 24;
+        let s = `<svg viewBox="0 0 ${W} 132" style="width:100%;height:auto;margin-top:10px;font-family:'Helvetica Neue',Arial,sans-serif">`;
+        s += `<text x="${L}" y="14" font-size="11" fill="#999">Kosten je 1.000 Fragen (US-$)</text>`;
+        vals.forEach(([lbl, v, col], i) => {
+            const y = 26 + i * 32, w = barW * v / max;
+            s += `<text x="${L - 10}" y="${y + 16}" text-anchor="end" font-size="12" fill="#000028" font-weight="bold">${lbl}</text>`;
+            s += w > 1 ? `<rect x="${L}" y="${y}" width="${w}" height="${bh}" fill="${col}"/>` : `<line x1="${L}" y1="${y}" x2="${L}" y2="${y + bh}" stroke="#ccc"/>`;
+            s += `<text x="${L + Math.max(w, 0) + 8}" y="${y + 16}" font-size="12" fill="#000028" font-weight="bold">${usd(v)}</text>`;
+        });
+        s += `</svg>`;
+
+        const ratio = cH > 0 ? (cP / cH) : 0;
+        s += `<p class="kpi"><b>Ersparnis durch lokalen Betrieb: 100 % der API-Kosten.</b> `
+            + `Auf ${model.label} kostete 1.000 Fragen ~${usd(cH * 1e3)} (Hybrid) bzw. ~${usd(cP * 1e3)} (PageIndex) — lokal $0. `
+            + `PageIndex ist in der Cloud ~${ratio.toFixed(1)}× so teuer wie Hybrid (tokenintensiv).</p>`;
+
+        document.getElementById('costViz').innerHTML = html + s;
     }
 
     function buildCmpTable(c) {
