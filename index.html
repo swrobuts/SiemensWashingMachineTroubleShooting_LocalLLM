@@ -355,6 +355,9 @@
             border-bottom: 1px solid var(--border-color);
         }
         .tab-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
             background: none;
             border: none;
             border-bottom: 3px solid transparent;
@@ -366,6 +369,7 @@
             margin-bottom: -1px;
             transition: color .2s, border-color .2s;
         }
+        .tab-ico { width: 18px; height: 18px; flex-shrink: 0; }
         .tab-btn:hover { color: var(--siemens-navy); }
         .tab-btn.active { color: var(--siemens-navy); border-bottom-color: var(--siemens-cyan); }
         .tab-panel { display: none; }
@@ -423,8 +427,10 @@
 </header>
 
 <nav class="tabs">
-    <button class="tab-btn active" data-tab="support" onclick="switchTab('support')">🛠️ Support</button>
-    <button class="tab-btn" data-tab="analyse" onclick="switchTab('analyse')">📊 Architektur &amp; Analyse</button>
+    <button class="tab-btn active" data-tab="support" onclick="switchTab('support')">
+        <svg class="tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.1-.5-.5-2.1 2.6-2.6z"/></svg>Support</button>
+    <button class="tab-btn" data-tab="analyse" onclick="switchTab('analyse')">
+        <svg class="tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="20" x2="6" y2="13"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="9"/></svg>Architektur &amp; Analyse</button>
 </nav>
 
 <main>
