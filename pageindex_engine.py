@@ -111,6 +111,22 @@ def search(query: str, complete=None, max_nodes: int = MAX_NODES) -> list[dict]:
     return [_node_map[nid] for nid in selected[:max_nodes]]
 
 
+def nav_token_estimate(query: str) -> int:
+    """Schätzt die Navigations-Tokens (Eingabe) ohne LLM-Aufruf — für die UI-Anzeige."""
+    _ensure_loaded()
+    items = _flat_nodes()
+    total = 0
+    for i in range(0, len(items), BATCH):
+        prompt = SEARCH_PROMPT.format(query=query, tree=json.dumps(items[i:i + BATCH], ensure_ascii=False))
+        try:
+            import litellm
+            total += litellm.token_counter(model="gpt-3.5-turbo", text=prompt)
+        except Exception:
+            total += len(prompt) // 4
+        total += 11  # grobe Ausgabe je Navigations-Call
+    return total
+
+
 def retrieve_context(query: str, complete=None) -> tuple[str, list[dict]]:
     """Gibt (Kontext-Text, gewählte Knoten) für die Antwortgenerierung zurück."""
     nodes = search(query, complete=complete)

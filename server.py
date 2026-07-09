@@ -84,32 +84,54 @@ qa_template = PromptTemplate(prompt_anweisung)
 _stream_retriever = rag_engine.make_retriever(index)
 _stream_reranker = rag_engine.get_reranker()
 
-# Retrieval-Modus umschaltbar: "hybrid" (Vektor+Rerank) oder "pageindex"
-# (vectorless, reasoning-based Baum-Navigation). Beide liefern (context, grounded, quelle).
-RETRIEVAL_MODE = os.getenv("RETRIEVAL_MODE", "hybrid")
-if RETRIEVAL_MODE == "pageindex":
+# Beide Retrieval-Verfahren werden geladen; der Modus ist per Request umschaltbar
+# ("hybrid" = Vektor+Rerank, "pageindex" = vectorless Baum-Navigation).
+DEFAULT_MODE = os.getenv("RETRIEVAL_MODE", "hybrid")
+try:
+    import litellm as _litellm
+    _litellm.drop_params = True
+except Exception:
+    _litellm = None
+
+_pi_available = False
+try:
     import pageindex_engine
-    pageindex_engine.load_tree()
-    _pi_complete = lambda p: llm.complete(p).text  # nutzt dasselbe LM-Studio-Modell
-    print(f"🎯 Retrieval: PageIndex (vectorless) | Tree {pageindex_engine.TREE_PATH}")
-else:
-    print(
-        f"🎯 Retrieval: hybrid top_k={rag_engine.RETRIEVE_K} → "
-        + (f"Rerank({rag_engine.RERANK_MODEL}) → {rag_engine.FINAL_K}"
-           if rag_engine.ENABLE_RERANK else "kein Rerank")
-    )
+    if os.path.exists(pageindex_engine.TREE_PATH):
+        pageindex_engine.load_tree()
+        _pi_complete = lambda p: llm.complete(p).text  # dasselbe LM-Studio-Modell
+        _pi_available = True
+except Exception as _e:
+    print(f"⚠️  PageIndex nicht verfügbar ({type(_e).__name__}: {_e}) — nur Hybrid-Modus")
+
+print(f"🎯 Retrieval: hybrid (top_k={rag_engine.RETRIEVE_K}→Rerank→{rag_engine.FINAL_K})"
+      f" | pageindex {'verfügbar' if _pi_available else 'NICHT verfügbar'} | Default: {DEFAULT_MODE}")
+
+_LLM_MODEL_FOR_COUNT = "gpt-3.5-turbo"  # generischer Tokenizer für die Zählung
 
 
-def _retrieve_context(frage: str):
-    """Einheitliche Retrieval-Schnittstelle → (context_str, grounded, quelle)."""
-    if RETRIEVAL_MODE == "pageindex":
+def _count_tokens(text: str) -> int:
+    if not text:
+        return 0
+    if _litellm is not None:
+        try:
+            return _litellm.token_counter(model=_LLM_MODEL_FOR_COUNT, text=text)
+        except Exception:
+            pass
+    return len(text) // 4
+
+
+def _retrieve_context(frage: str, mode: str = None):
+    """Einheitliche Retrieval-Schnittstelle → (context, grounded, quelle, retrieval_tokens)."""
+    mode = mode or DEFAULT_MODE
+    if mode == "pageindex" and _pi_available:
         ctx, nodes = pageindex_engine.retrieve_context(frage, complete=_pi_complete)
-        return ctx, pageindex_engine.is_grounded(nodes), pageindex_engine.format_source_reference(nodes)
+        retr_tokens = pageindex_engine.nav_token_estimate(frage)
+        return ctx, pageindex_engine.is_grounded(nodes), pageindex_engine.format_source_reference(nodes), retr_tokens
     nodes = _stream_retriever.retrieve(frage)
     if _stream_reranker:
         nodes = _stream_reranker.postprocess_nodes(nodes, query_str=frage)
     ctx = "\n\n".join(n.node.get_content() for n in nodes)
-    return ctx, rag_engine.is_grounded(nodes), rag_engine.format_source_reference(nodes)
+    return ctx, rag_engine.is_grounded(nodes), rag_engine.format_source_reference(nodes), 0  # hybrid: 0 Retrieval-Tokens
 
 
 print("✅ System bereit!")
@@ -176,10 +198,13 @@ def ask_ai():
     if not frage:
         return jsonify({"error": "Keine Frage gestellt"}), 400
 
-    print(f"\nNeue Frage von der Webseite erhalten: '{frage}'")
+    mode = data.get("mode") or DEFAULT_MODE
+    if mode == "pageindex" and not _pi_available:
+        mode = "hybrid"
+    print(f"\nNeue Frage ({mode}): '{frage}'")
 
     # Retrieval (Modus-abhängig) + Guardrail.
-    context_str, grounded, quelle = _retrieve_context(frage)
+    context_str, grounded, quelle, _retr_tokens = _retrieve_context(frage, mode)
     if not grounded:
         return jsonify({
             "tts_summary": rag_engine.NOT_IN_MANUAL,
@@ -250,19 +275,22 @@ def ask_ai_stream():
     """
     data = request.get_json()
     frage = data.get("frage", "")
+    mode = data.get("mode") or DEFAULT_MODE
+    if mode == "pageindex" and not _pi_available:
+        mode = "hybrid"
     if not frage:
         return jsonify({"error": "Keine Frage gestellt"}), 400
 
-    print(f"\n[stream] Neue Frage: '{frage}'")
+    print(f"\n[stream:{mode}] Neue Frage: '{frage}'")
 
     def generate():
         try:
             # 1. Retrieval (Modus-abhängig) → Quelle sofort senden.
-            context_str, grounded, quelle = _retrieve_context(frage)
+            context_str, grounded, quelle, retr_tokens = _retrieve_context(frage, mode)
 
             # Guardrail: Frage nicht vom Handbuch gedeckt → nicht halluzinieren.
             if not grounded:
-                yield _sse("meta", {"reference": ""})
+                yield _sse("meta", {"reference": "", "mode": mode})
                 yield _sse("result", {
                     "tts_summary": rag_engine.NOT_IN_MANUAL,
                     "results": [{
@@ -271,14 +299,17 @@ def ask_ai_stream():
                         "sourceType": "manual",
                         "reference": "",
                     }],
+                    "usage": {"mode": mode, "retrieval": retr_tokens, "answer_in": 0,
+                              "answer_out": 0, "total": retr_tokens},
                 })
                 yield "data: [DONE]\n\n"
                 return
 
-            yield _sse("meta", {"reference": quelle})
+            yield _sse("meta", {"reference": quelle, "mode": mode})
 
             # 2. Das LLM DIREKT streamen (token-weise).
             prompt = qa_template.format(context_str=context_str, query_str=frage)
+            prompt_tokens = _count_tokens(prompt)
 
             parts = []
             for ch in llm.stream_chat([ChatMessage(role="user", content=prompt)]):
@@ -288,6 +319,7 @@ def ask_ai_stream():
                     yield _sse("token", delta)
 
             raw = "".join(parts).strip()
+            answer_out = _count_tokens(raw)
             tts_text, man_content, int_content = parse_ai_response(raw)
             results = [{
                 "title": "📚 Handbuch / Manual",
@@ -302,7 +334,11 @@ def ask_ai_stream():
                     "sourceType": "internet",
                     "reference": "General Knowledge",
                 })
-            yield _sse("result", {"tts_summary": tts_text, "results": results})
+            yield _sse("result", {
+                "tts_summary": tts_text, "results": results,
+                "usage": {"mode": mode, "retrieval": retr_tokens, "answer_in": prompt_tokens,
+                          "answer_out": answer_out, "total": retr_tokens + prompt_tokens + answer_out},
+            })
         except Exception as e:
             print(f"🚨 [stream] Fehler: {e}")
             yield _sse("error", {"message": str(e)})
@@ -313,6 +349,31 @@ def ask_ai_stream():
         mimetype="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# Gemessene Vergleichsdaten (Zielmaschine, gemma-4-12b, 10 Fragen bzw. Beispiel E:18)
+# für die Analyse-Registerkarte.
+_COMPARISON = {
+    "hybrid": {
+        "label": "Hybrid + Reranking",
+        "hit1": 100, "mrr": 1.00, "recall": 96, "latency_s": 2,
+        "tokens": {"retrieval": 0, "answer": 1237, "total": 1237},
+    },
+    "pageindex": {
+        "label": "PageIndex (vectorless)",
+        "hit1": 70, "mrr": 0.82, "recall": 88, "latency_s": 104,
+        "tokens": {"retrieval": 12300, "answer": 2954, "total": 15254},
+    },
+}
+
+
+@app.route("/api/modes", methods=["GET"])
+def api_modes():
+    return jsonify({
+        "default": DEFAULT_MODE,
+        "pageindex_available": _pi_available,
+        "comparison": _COMPARISON,
+    })
 
 
 if __name__ == "__main__":

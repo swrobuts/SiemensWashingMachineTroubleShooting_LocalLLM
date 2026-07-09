@@ -345,6 +345,64 @@
         .followup-input-wrapper button:hover {
             background-color: #008f98;
         }
+        /* ── Tabs ── */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            padding: 16px 22px;
+            font-size: 15px;
+            color: #777;
+            cursor: pointer;
+            font-weight: 600;
+            margin-bottom: -1px;
+            transition: color .2s, border-color .2s;
+        }
+        .tab-btn:hover { color: var(--siemens-navy); }
+        .tab-btn.active { color: var(--siemens-navy); border-bottom-color: var(--siemens-cyan); }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; animation: fadeIn .4s ease-out; }
+
+        /* ── Modus-Toggle (segmented control) ── */
+        .mode-row {
+            display: flex; align-items: center; justify-content: center;
+            gap: 14px; margin-top: 22px; flex-wrap: wrap;
+        }
+        .mode-label { font-size: 13px; color: #777; text-transform: uppercase; letter-spacing: .5px; }
+        .mode-toggle { display: inline-flex; border: 1px solid var(--siemens-cyan); }
+        .mode-opt {
+            background: #fff; border: none; padding: 9px 18px; font-size: 14px;
+            color: var(--siemens-navy); cursor: pointer; transition: background .2s, color .2s;
+        }
+        .mode-opt + .mode-opt { border-left: 1px solid var(--siemens-cyan); }
+        .mode-opt.active { background: var(--siemens-cyan); color: #fff; font-weight: bold; }
+        .mode-opt:disabled { color: #bbb; cursor: not-allowed; }
+        .mode-hint { font-size: 12px; color: #999; }
+        .usage-line { font-size: 12px; color: #888; margin-top: 14px; text-align: right; }
+        .usage-line b { color: var(--siemens-navy); }
+
+        /* ── Analyse-Tab ── */
+        .an { max-width: 1000px; }
+        .an h2 { font-weight: 300; color: var(--siemens-navy); font-size: 30px; }
+        .an h3 { color: var(--siemens-navy); font-weight: 600; margin-top: 42px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+        .an-intro, .an-note { color: #666; font-size: 14px; line-height: 1.6; }
+        .an-note { font-size: 12.5px; color: #999; margin-top: 4px; }
+        .cmp { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
+        .cmp th, .cmp td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border-color); }
+        .cmp th { color: #777; font-weight: 600; text-transform: uppercase; font-size: 11.5px; letter-spacing: .5px; }
+        .cmp td.metric { color: #555; }
+        .cmp td .val { font-weight: bold; color: var(--siemens-navy); font-variant-numeric: tabular-nums; }
+        .cmp .better { color: #2E9E5B; }
+        .cmp .worse { color: #C0392B; }
+        .arch-note { font-size: 12px; color: #999; margin: 6px 0 0; }
     </style>
 </head>
 <body>
@@ -360,13 +418,27 @@
     </div>
 </header>
 
+<nav class="tabs">
+    <button class="tab-btn active" data-tab="support" onclick="switchTab('support')">🛠️ Support</button>
+    <button class="tab-btn" data-tab="analyse" onclick="switchTab('analyse')">📊 Architektur &amp; Analyse</button>
+</nav>
+
 <main>
+  <div id="tab-support" class="tab-panel active">
     <section class="search-section">
         <h2>Wie können wir Ihnen helfen?</h2>
         <p>Beschreiben Sie das Problem Ihrer Waschmaschine oder suchen Sie nach einem Fehlercode.</p>
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="z.B. 'Wasser läuft aus' oder 'Error E:23'">
             <button onclick="performSearch()">Suchen</button>
+        </div>
+        <div class="mode-row">
+            <span class="mode-label">Retrieval-Verfahren</span>
+            <div class="mode-toggle" id="modeToggle">
+                <button class="mode-opt active" data-mode="hybrid" onclick="setMode('hybrid')">Hybrid · Vektor</button>
+                <button class="mode-opt" data-mode="pageindex" onclick="setMode('pageindex')">PageIndex · vectorless</button>
+            </div>
+            <span class="mode-hint" id="modeHint"></span>
         </div>
     </section>
 
@@ -404,6 +476,7 @@
             </div>
         </div>
         <div id="results-list"></div>
+        <div class="usage-line" id="usageLine"></div>
 
         <!-- Rückfragen Bereich (wird nach Ergebnissen eingeblendet) -->
         <div id="followup-container" class="followup-container" style="display: none;">
@@ -419,20 +492,176 @@
             </div>
         </div>
     </section>
+  </div><!-- /tab-support -->
+
+  <div id="tab-analyse" class="tab-panel">
+    <section class="an">
+      <h2>Zwei Retrieval-Verfahren im Vergleich</h2>
+      <p class="an-intro">Der Assistent findet die passenden Handbuch-Abschnitte auf zwei Arten — im Support-Tab per Toggle umschaltbar. Beide laufen vollständig lokal (kein Cloud-Aufruf).</p>
+
+      <h3>Architektur</h3>
+      <svg viewBox="0 0 900 250" style="width:100%;height:auto;font-family:'Helvetica Neue',Arial,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#000028"/>
+          </marker>
+        </defs>
+        <text x="10" y="20" font-size="12" fill="#00AAB4" font-weight="bold">OFFLINE (einmalig)</text>
+        <text x="10" y="38" font-size="12" fill="#666">PDF → Docling → Markdown  →  Vektorindex (Hybrid)  ·  Tree-Index mit Zusammenfassungen (PageIndex)</text>
+
+        <!-- Hybrid lane -->
+        <text x="10" y="78" font-size="12.5" fill="#000028" font-weight="bold">Hybrid · Vektor</text>
+        <g font-size="11.5" fill="#22242E">
+          <rect x="120" y="66" width="70"  height="30" rx="4" fill="#000028"/><text x="155" y="85" fill="#fff" text-anchor="middle">Frage</text>
+          <rect x="210" y="66" width="150" height="30" rx="4" fill="#ECEEF1" stroke="#000028"/><text x="285" y="85" text-anchor="middle">Vektor + Code-Lookup</text>
+          <rect x="380" y="66" width="95"  height="30" rx="4" fill="#ECEEF1" stroke="#000028"/><text x="427" y="85" text-anchor="middle">Reranking</text>
+          <rect x="495" y="66" width="110" height="30" rx="4" fill="#00AAB4"/><text x="550" y="85" fill="#fff" text-anchor="middle">Top-5 → LLM</text>
+          <rect x="625" y="66" width="85"  height="30" rx="4" fill="#000028"/><text x="667" y="85" fill="#fff" text-anchor="middle">Antwort</text>
+          <line x1="190" y1="81" x2="208" y2="81" stroke="#000028" marker-end="url(#ah)"/>
+          <line x1="360" y1="81" x2="378" y2="81" stroke="#000028" marker-end="url(#ah)"/>
+          <line x1="475" y1="81" x2="493" y2="81" stroke="#000028" marker-end="url(#ah)"/>
+          <line x1="605" y1="81" x2="623" y2="81" stroke="#000028" marker-end="url(#ah)"/>
+        </g>
+        <text x="730" y="85" font-size="11" fill="#2E9E5B">Retrieval LLM-frei</text>
+
+        <!-- PageIndex lane -->
+        <text x="10" y="168" font-size="12.5" fill="#000028" font-weight="bold">PageIndex · vectorless</text>
+        <g font-size="11.5" fill="#22242E">
+          <rect x="120" y="156" width="70"  height="30" rx="4" fill="#000028"/><text x="155" y="175" fill="#fff" text-anchor="middle">Frage</text>
+          <rect x="210" y="156" width="175" height="30" rx="4" fill="#D98A0B"/><text x="297" y="175" fill="#fff" text-anchor="middle">LLM navigiert Tree-Index</text>
+          <rect x="405" y="156" width="130" height="30" rx="4" fill="#ECEEF1" stroke="#000028"/><text x="470" y="175" text-anchor="middle">gewählte Abschnitte</text>
+          <rect x="555" y="156" width="70"  height="30" rx="4" fill="#00AAB4"/><text x="590" y="175" fill="#fff" text-anchor="middle">LLM</text>
+          <rect x="645" y="156" width="85"  height="30" rx="4" fill="#000028"/><text x="687" y="175" fill="#fff" text-anchor="middle">Antwort</text>
+          <line x1="190" y1="171" x2="208" y2="171" stroke="#000028" marker-end="url(#ah)"/>
+          <line x1="385" y1="171" x2="403" y2="171" stroke="#000028" marker-end="url(#ah)"/>
+          <line x1="535" y1="171" x2="553" y2="171" stroke="#000028" marker-end="url(#ah)"/>
+          <line x1="625" y1="171" x2="643" y2="171" stroke="#000028" marker-end="url(#ah)"/>
+        </g>
+        <text x="748" y="175" font-size="11" fill="#C0392B">Retrieval per LLM</text>
+      </svg>
+      <p class="arch-note">Kernunterschied: Hybrid rechnet Vektor-Ähnlichkeit (kein LLM im Retrieval); PageIndex lässt ein LLM den Abschnitts-Baum durchsuchen — erklärbar, aber tokenintensiv.</p>
+
+      <h3>Gegenüberstellung</h3>
+      <div id="cmpTable"></div>
+
+      <h3>Tokenverbrauch je Frage</h3>
+      <p class="an-note">Real gemessen (Beispiel „Fehler E:18", gemma-4-12b). Aufgeteilt in Retrieval (Kontextsuche) und Antwort-Generierung.</p>
+      <div id="tokenViz"></div>
+    </section>
+  </div>
 </main>
 
 <script>
     // System Variablen
+    const API = 'http://localhost:3001';
     let currentTtsText = "";
-    let lastQuery = ""; // Speichert die letzte Hauptfrage für Rückfragen
+    let lastQuery = "";
+    let currentMode = 'hybrid';
+    let pageindexAvailable = false;
+    let comparison = null;
+    let analysisRendered = false;
 
     window.onload = function() {
+        loadModes();
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('q')) {
             document.getElementById('searchInput').value = urlParams.get('q');
             performSearch();
         }
     };
+
+    // ── Tabs & Modus ──────────────────────────────────────────────────────
+    function switchTab(t) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+        document.getElementById('tab-support').classList.toggle('active', t === 'support');
+        document.getElementById('tab-analyse').classList.toggle('active', t === 'analyse');
+        if (t === 'analyse' && !analysisRendered) renderAnalysis();
+    }
+
+    function setMode(m) {
+        if (m === 'pageindex' && !pageindexAvailable) return;
+        currentMode = m;
+        document.querySelectorAll('.mode-opt').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+        document.getElementById('modeHint').textContent = m === 'pageindex'
+            ? 'reasoning-basiert · erklärbar · langsam · tokenintensiv'
+            : 'Vektor + Reranking · schnell · retrieval ohne LLM';
+    }
+
+    async function loadModes() {
+        try {
+            const d = await (await fetch(API + '/api/modes')).json();
+            pageindexAvailable = !!d.pageindex_available;
+            comparison = d.comparison;
+            const piBtn = document.querySelector('.mode-opt[data-mode="pageindex"]');
+            if (!pageindexAvailable) { piBtn.disabled = true; piBtn.title = 'Tree-Index nicht gebaut'; }
+            setMode(d.default || 'hybrid');
+        } catch (e) { setMode('hybrid'); }
+    }
+
+    function showUsage(u) {
+        const el = document.getElementById('usageLine');
+        if (!el || !u) return;
+        const f = n => (n || 0).toLocaleString('de-DE');
+        el.innerHTML = `Diese Antwort · Modus <b>${u.mode}</b> · <b>${f(u.total)}</b> Tokens `
+            + `(Retrieval ${f(u.retrieval)} + Antwort ${f((u.answer_in || 0) + (u.answer_out || 0))})`;
+    }
+
+    // ── Analyse-Registerkarte ─────────────────────────────────────────────
+    function renderAnalysis() {
+        if (!comparison) {
+            document.getElementById('cmpTable').innerHTML = '<p class="an-note">Server nicht erreichbar — Vergleichsdaten konnten nicht geladen werden. Bitte Server starten und Tab neu öffnen.</p>';
+            return;
+        }
+        buildCmpTable(comparison);
+        buildTokenViz(comparison);
+        analysisRendered = true;
+    }
+
+    function buildCmpTable(c) {
+        const h = c.hybrid, p = c.pageindex, f = n => n.toLocaleString('de-DE');
+        const rows = [
+            ['Trefferquote hit@1', h.hit1 + ' %', p.hit1 + ' %', h.hit1 >= p.hit1],
+            ['MRR (Rangqualität)', h.mrr.toFixed(2), p.mrr.toFixed(2), h.mrr >= p.mrr],
+            ['Ø Recall', h.recall + ' %', p.recall + ' %', h.recall >= p.recall],
+            ['Latenz je Frage', '~' + h.latency_s + ' s', '~' + p.latency_s + ' s', h.latency_s <= p.latency_s],
+            ['Tokens je Frage', f(h.tokens.total), f(p.tokens.total), h.tokens.total <= p.tokens.total],
+            ['LLM-Calls (Retrieval)', '0', '7', true],
+            ['Erklärbarkeit', 'Score-basiert', 'Reasoning · nachvollziehbar', false],
+            ['Vektor-Datenbank nötig', 'ja', 'nein', false],
+        ];
+        let html = `<table class="cmp"><thead><tr><th>Kriterium</th><th>${h.label}</th><th>${p.label}</th></tr></thead><tbody>`;
+        for (const [m, hv, pv, hyBetter] of rows) {
+            html += `<tr><td class="metric">${m}</td>`
+                + `<td><span class="val ${hyBetter === true ? 'better' : ''}">${hv}</span></td>`
+                + `<td><span class="val ${hyBetter === false ? 'better' : ''}">${pv}</span></td></tr>`;
+        }
+        document.getElementById('cmpTable').innerHTML = html + '</tbody></table>';
+    }
+
+    function buildTokenViz(c) {
+        const h = c.hybrid.tokens, p = c.pageindex.tokens;
+        const max = Math.max(h.total, p.total);
+        const W = 760, L = 110, R = 120, barW = W - L - R, bh = 26, y1 = 26, y2 = 74;
+        const sc = v => barW * v / max, f = v => v.toLocaleString('de-DE');
+        const seg = (x, y, w, fill) => w > 1 ? `<rect x="${x}" y="${y}" width="${w}" height="${bh}" fill="${fill}"/>` : '';
+        const bar = (y, label, t) => {
+            let s = `<text x="${L - 10}" y="${y + 17}" text-anchor="end" font-size="12" fill="#000028" font-weight="bold">${label}</text>`;
+            s += seg(L, y, sc(t.retrieval), '#B9C0C9') + seg(L + sc(t.retrieval), y, sc(t.answer), '#00AAB4');
+            if (sc(t.retrieval) > 60) s += `<text x="${L + sc(t.retrieval) / 2}" y="${y + 17}" text-anchor="middle" font-size="11" fill="#333">${f(t.retrieval)}</text>`;
+            s += `<text x="${L + sc(t.total) + 8}" y="${y + 17}" font-size="12" fill="#000028" font-weight="bold">${f(t.total)}</text>`;
+            return s;
+        };
+        const save = p.total - h.total, pct = Math.round(100 * save / p.total);
+        let s = `<svg viewBox="0 0 ${W} 140" style="width:100%;height:auto;font-family:'Helvetica Neue',Arial,sans-serif">`;
+        s += `<line x1="${L}" y1="16" x2="${L}" y2="112" stroke="#ddd"/>`;
+        s += bar(y1, 'Hybrid', h) + bar(y2, 'PageIndex', p);
+        s += `<rect x="${L}" y="122" width="11" height="11" fill="#B9C0C9"/><text x="${L + 16}" y="131" font-size="11" fill="#666">Retrieval</text>`;
+        s += `<rect x="${L + 130}" y="122" width="11" height="11" fill="#00AAB4"/><text x="${L + 146}" y="131" font-size="11" fill="#666">Antwort-Generierung</text>`;
+        s += `</svg>`;
+        s += `<p style="font-size:14px;color:#000028;margin-top:8px"><b style="color:#2E9E5B">Ersparnis mit Hybrid:</b> `
+            + `~${f(save)} Tokens je Frage (&minus;${pct} %) — PageIndex verbraucht ~${(p.total / h.total).toFixed(1)}× so viel.</p>`;
+        document.getElementById('tokenViz').innerHTML = s;
+    }
 
     // 1. Text-To-Speech (Vorlesen)
     window.speechSynthesis.onvoiceschanged = function() {
@@ -595,6 +824,7 @@
         document.getElementById('qrcode-container').style.display = 'none';
         window.speechSynthesis.cancel();
         document.getElementById('ttsButton').innerHTML = '🔊 Vorlesen';
+        document.getElementById('usageLine').innerHTML = '';
 
         resultsList.innerHTML = `
             <div class="loading-container">
@@ -607,10 +837,10 @@
         let reference = '';
         let rawAnswer = '';
         try {
-            const response = await fetch('http://localhost:3001/api/ask_stream', {
+            const response = await fetch(API + '/api/ask_stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ frage: queryToUse })
+                body: JSON.stringify({ frage: queryToUse, mode: currentMode })
             });
             if (!response.ok || !response.body) throw new Error('Kein Stream verfügbar');
 
@@ -651,6 +881,7 @@
                         try { data = JSON.parse(dataStr); } catch (e) {}
                         if (data) {
                             renderResults(data, reference);
+                            showUsage(data.usage);
                             lastQuery = rawInput;
                         }
                     } else if (evName === 'error') {
