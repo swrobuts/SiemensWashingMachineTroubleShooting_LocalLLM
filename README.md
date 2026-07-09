@@ -4,6 +4,16 @@ Ein **komplett lokaler** RAG-Assistent (DSGVO-konform, keine Cloud): stellt Frag
 zu einer Siemens-Waschmaschine und beantwortet sie aus dem offiziellen Handbuch —
 mit Quellenangabe (Abschnitt + Seite). Läuft gegen ein lokales LLM in **LM Studio**.
 
+## Dokumentation
+
+- **[docs/TECHNICAL.md](docs/TECHNICAL.md)** — technische Doku mit Schwerpunkt auf der
+  Dokumentenaufbereitung (Docling → Chunking → Embeddings → Index → Retrieval).
+- **[notebooks/document_processing_pipeline.ipynb](notebooks/document_processing_pipeline.ipynb)**
+  — die Dokumentenverarbeitungs-Pipeline als eigenständiges, in Google Colab
+  lauffähiges Notebook (in Colab: *Datei → Notebook hochladen*).
+- **[docs/2026-07-07-optimization-design.md](docs/2026-07-07-optimization-design.md)**
+  — Design- und Statusdokument der Optimierungen.
+
 ## Architektur
 
 ```
