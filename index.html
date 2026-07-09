@@ -399,19 +399,26 @@
         .an h3 { color: var(--siemens-navy); font-weight: 600; margin-top: 42px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
         .an-intro, .an-note { color: #666; font-size: 14px; line-height: 1.6; }
         .an-note { font-size: 12.5px; color: #999; margin-top: 4px; }
-        .cmp { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
-        .cmp th, .cmp td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border-color); }
-        .cmp th { color: #777; font-weight: 600; text-transform: uppercase; font-size: 11.5px; letter-spacing: .5px; vertical-align: top; }
-        .cmp th .th-sub { display: block; text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 10.5px; color: #9aa2ac; margin-top: 2px; }
+        .cmp { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 16px; table-layout: fixed; }
+        .cmp th, .cmp td { text-align: left; padding: 13px 18px; border-bottom: 1px solid var(--border-color); vertical-align: bottom; }
+        .cmp th:first-child, .cmp td:first-child { padding-left: 0; }
+        .cmp th:last-child, .cmp td:last-child { padding-right: 0; }
+        .cmp th { color: #777; font-weight: 600; text-transform: uppercase; font-size: 11.5px; letter-spacing: .5px; line-height: 1.35; }
+        .cmp td { vertical-align: middle; }
+        .cmp th .th-sub { display: block; text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 10.5px; color: #9aa2ac; margin-top: 3px; }
         .cmp td.metric { color: #555; }
         .cmp td .val { font-weight: bold; color: var(--siemens-navy); font-variant-numeric: tabular-nums; }
         .cmp .better { color: #2E9E5B; }
         .cmp .worse { color: #C0392B; }
-        .arch-note { font-size: 12px; color: #999; margin: 6px 0 0; }
-        .cost-controls { display: flex; align-items: center; gap: 10px; margin: 16px 0 6px; flex-wrap: wrap; }
+        /* rein numerische Tabelle: Zahlenspalten rechtsbündig für eine saubere Zahlenkolonne */
+        .cmp--num th:not(:first-child), .cmp--num td:not(:first-child) { text-align: right; }
+        .arch-note { font-size: 12px; color: #999; margin: 12px 0 0; line-height: 1.6; }
+        .cost-controls { display: flex; align-items: center; gap: 10px; margin: 22px 0 8px; flex-wrap: wrap; }
         .cost-controls select { padding: 7px 10px; border: 1px solid var(--border-color); font-size: 14px; background: #fff; color: var(--siemens-navy); }
-        .kpi { font-size: 14px; color: var(--siemens-navy); margin-top: 10px; }
+        .kpi { font-size: 14px; color: var(--siemens-navy); margin-top: 18px; line-height: 1.6; }
         .kpi b { color: #2E9E5B; }
+        #tokenViz, #costViz { margin-top: 18px; }
+        #tokenViz svg, #costViz svg { display: block; }
     </style>
 </head>
 <body>
@@ -664,7 +671,8 @@
 
         // Tabelle: tatsächlich (lokal $0) vs. hypothetischer Cloud-Preis = vermiedene Kosten
         const rows = [['1 Frage', cH, cP], ['1.000 Fragen', cH * 1e3, cP * 1e3], ['10.000 Fragen', cH * 1e4, cP * 1e4]];
-        let html = `<table class="cmp"><thead><tr><th>Pro …</th><th>Lokal<br><span class="th-sub">tatsächlich</span></th>`
+        let html = `<table class="cmp cmp--num"><colgroup><col style="width:28%"><col style="width:24%"><col style="width:24%"><col style="width:24%"></colgroup>`
+            + `<thead><tr><th>Pro …</th><th>Lokal<br><span class="th-sub">tatsächlich</span></th>`
             + `<th>Hybrid → ${model.label}<br><span class="th-sub">hypothetisch = vermieden</span></th>`
             + `<th>PageIndex → ${model.label}<br><span class="th-sub">hypothetisch = vermieden</span></th></tr></thead><tbody>`;
         for (const [lbl, a, b] of rows) {
@@ -677,9 +685,10 @@
 
         // Tufte-Balken: vermiedene (hypothetische) Cloud-Kosten je 1.000 Fragen
         const vals = [['Lokal (real)', 0, '#B9C0C9'], ['Hybrid → Cloud', cH * 1e3, '#00AAB4'], ['PageIndex → Cloud', cP * 1e3, '#D98A0B']];
-        const max = cP * 1e3 || 1, W = 760, L = 130, R = 90, barW = W - L - R, bh = 24;
+        const max = cP * 1e3 || 1, W = 780, L = 150, R = 90, barW = W - L - R, bh = 24;
         let s = `<svg viewBox="0 0 ${W} 132" style="width:100%;height:auto;margin-top:10px;font-family:'Helvetica Neue',Arial,sans-serif">`;
         s += `<text x="${L}" y="14" font-size="11" fill="#999">Vermiedene Cloud-Kosten je 1.000 Fragen (US-$, hypothetisch)</text>`;
+        s += `<line x1="${L}" y1="22" x2="${L}" y2="118" stroke="#ddd"/>`;
         vals.forEach(([lbl, v, col], i) => {
             const y = 26 + i * 32, w = barW * v / max;
             s += `<text x="${L - 10}" y="${y + 16}" text-anchor="end" font-size="12" fill="#000028" font-weight="bold">${lbl}</text>`;
@@ -709,7 +718,8 @@
             ['Erklärbarkeit', 'Score-basiert', 'Reasoning · nachvollziehbar', false],
             ['Vektor-Datenbank nötig', 'ja', 'nein', false],
         ];
-        let html = `<table class="cmp"><thead><tr><th>Kriterium</th><th>${h.label}</th><th>${p.label}</th></tr></thead><tbody>`;
+        let html = `<table class="cmp"><colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>`
+            + `<thead><tr><th>Kriterium</th><th>${h.label}</th><th>${p.label}</th></tr></thead><tbody>`;
         for (const [m, hv, pv, hyBetter] of rows) {
             html += `<tr><td class="metric">${m}</td>`
                 + `<td><span class="val ${hyBetter === true ? 'better' : ''}">${hv}</span></td>`
@@ -721,7 +731,7 @@
     function buildTokenViz(c) {
         const h = c.hybrid.tokens, p = c.pageindex.tokens;
         const max = Math.max(h.total, p.total);
-        const W = 760, L = 110, R = 120, barW = W - L - R, bh = 26, y1 = 26, y2 = 74;
+        const W = 780, L = 150, R = 120, barW = W - L - R, bh = 26, y1 = 26, y2 = 74;
         const sc = v => barW * v / max, f = v => v.toLocaleString('de-DE');
         const seg = (x, y, w, fill) => w > 1 ? `<rect x="${x}" y="${y}" width="${w}" height="${bh}" fill="${fill}"/>` : '';
         const bar = (y, label, t) => {
