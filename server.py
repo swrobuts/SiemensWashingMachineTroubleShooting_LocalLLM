@@ -87,51 +87,69 @@ _stream_reranker = rag_engine.get_reranker()
 # Beide Retrieval-Verfahren werden geladen; der Modus ist per Request umschaltbar
 # ("hybrid" = Vektor+Rerank, "pageindex" = vectorless Baum-Navigation).
 DEFAULT_MODE = os.getenv("RETRIEVAL_MODE", "hybrid")
+# LiteLLM (lm_studio-Provider) für exakte Token-usage aus LM Studio.
 try:
     import litellm as _litellm
     _litellm.drop_params = True
+    os.environ.setdefault("LM_STUDIO_API_BASE", LLM_ENDPOINT)
+    os.environ.setdefault("LM_STUDIO_API_KEY", "lm-studio")
+    LITELLM_MODEL = "lm_studio/" + LLM_MODEL
 except Exception:
     _litellm = None
+    LITELLM_MODEL = None
 
 _pi_available = False
 try:
     import pageindex_engine
     if os.path.exists(pageindex_engine.TREE_PATH):
         pageindex_engine.load_tree()
-        _pi_complete = lambda p: llm.complete(p).text  # dasselbe LM-Studio-Modell
         _pi_available = True
 except Exception as _e:
     print(f"⚠️  PageIndex nicht verfügbar ({type(_e).__name__}: {_e}) — nur Hybrid-Modus")
 
 print(f"🎯 Retrieval: hybrid (top_k={rag_engine.RETRIEVE_K}→Rerank→{rag_engine.FINAL_K})"
-      f" | pageindex {'verfügbar' if _pi_available else 'NICHT verfügbar'} | Default: {DEFAULT_MODE}")
-
-_LLM_MODEL_FOR_COUNT = "gpt-3.5-turbo"  # generischer Tokenizer für die Zählung
+      f" | pageindex {'verfügbar' if _pi_available else 'NICHT verfügbar'} | Default: {DEFAULT_MODE}"
+      f" | exakte usage: {'ja' if _litellm else 'nein (Schätzung)'}")
 
 
 def _count_tokens(text: str) -> int:
+    """Fallback-Schätzung, nur falls LiteLLM/usage nicht verfügbar."""
     if not text:
         return 0
     if _litellm is not None:
         try:
-            return _litellm.token_counter(model=_LLM_MODEL_FOR_COUNT, text=text)
+            return _litellm.token_counter(model="gpt-3.5-turbo", text=text)
         except Exception:
             pass
     return len(text) // 4
 
 
+def _llm_complete_exact(prompt: str, usage_acc: dict) -> str:
+    """Nicht-streamender LLM-Call via LiteLLM; summiert EXAKTE usage in usage_acc."""
+    r = _litellm.completion(model=LITELLM_MODEL, messages=[{"role": "user", "content": prompt}], temperature=0)
+    u = r.usage
+    usage_acc["in"] += u.prompt_tokens
+    usage_acc["out"] += u.completion_tokens
+    return r.choices[0].message.content or ""
+
+
 def _retrieve_context(frage: str, mode: str = None):
-    """Einheitliche Retrieval-Schnittstelle → (context, grounded, quelle, retrieval_tokens)."""
+    """→ (context, grounded, quelle, retrieval_tokens) — Retrieval-Tokens EXAKT."""
     mode = mode or DEFAULT_MODE
     if mode == "pageindex" and _pi_available:
-        ctx, nodes = pageindex_engine.retrieve_context(frage, complete=_pi_complete)
-        retr_tokens = pageindex_engine.nav_token_estimate(frage)
+        nav = {"in": 0, "out": 0}
+        if _litellm is not None:
+            complete = lambda p: _llm_complete_exact(p, nav)  # noqa: E731
+        else:
+            complete = lambda p: llm.complete(p).text  # noqa: E731
+        ctx, nodes = pageindex_engine.retrieve_context(frage, complete=complete)
+        retr_tokens = (nav["in"] + nav["out"]) if _litellm is not None else pageindex_engine.nav_token_estimate(frage)
         return ctx, pageindex_engine.is_grounded(nodes), pageindex_engine.format_source_reference(nodes), retr_tokens
     nodes = _stream_retriever.retrieve(frage)
     if _stream_reranker:
         nodes = _stream_reranker.postprocess_nodes(nodes, query_str=frage)
     ctx = "\n\n".join(n.node.get_content() for n in nodes)
-    return ctx, rag_engine.is_grounded(nodes), rag_engine.format_source_reference(nodes), 0  # hybrid: 0 Retrieval-Tokens
+    return ctx, rag_engine.is_grounded(nodes), rag_engine.format_source_reference(nodes), 0  # hybrid: exakt 0
 
 
 print("✅ System bereit!")
@@ -307,19 +325,38 @@ def ask_ai_stream():
 
             yield _sse("meta", {"reference": quelle, "mode": mode})
 
-            # 2. Das LLM DIREKT streamen (token-weise).
+            # 2. Antwort streamen — via LiteLLM mit EXAKTER usage aus LM Studio.
             prompt = qa_template.format(context_str=context_str, query_str=frage)
-            prompt_tokens = _count_tokens(prompt)
-
             parts = []
-            for ch in llm.stream_chat([ChatMessage(role="user", content=prompt)]):
-                delta = ch.delta or ""
-                if delta:
-                    parts.append(delta)
-                    yield _sse("token", delta)
+            answer_in = answer_out = 0
+            if _litellm is not None:
+                stream = _litellm.completion(
+                    model=LITELLM_MODEL,
+                    messages=[{"role": "user", "content": prompt}],
+                    stream=True, stream_options={"include_usage": True},
+                    temperature=0.0, max_tokens=2048,
+                )
+                for ch in stream:
+                    u = getattr(ch, "usage", None)
+                    if u:
+                        answer_in, answer_out = u.prompt_tokens, u.completion_tokens
+                    choices = ch.choices or []
+                    if choices:
+                        delta = getattr(choices[0].delta, "content", None) or ""
+                        if delta:
+                            parts.append(delta)
+                            yield _sse("token", delta)
+            else:
+                for ch in llm.stream_chat([ChatMessage(role="user", content=prompt)]):
+                    delta = ch.delta or ""
+                    if delta:
+                        parts.append(delta)
+                        yield _sse("token", delta)
 
             raw = "".join(parts).strip()
-            answer_out = _count_tokens(raw)
+            if not answer_out:  # Fallback, falls keine usage geliefert wurde
+                answer_in = answer_in or _count_tokens(prompt)
+                answer_out = _count_tokens(raw)
             tts_text, man_content, int_content = parse_ai_response(raw)
             results = [{
                 "title": "📚 Handbuch / Manual",
@@ -336,8 +373,8 @@ def ask_ai_stream():
                 })
             yield _sse("result", {
                 "tts_summary": tts_text, "results": results,
-                "usage": {"mode": mode, "retrieval": retr_tokens, "answer_in": prompt_tokens,
-                          "answer_out": answer_out, "total": retr_tokens + prompt_tokens + answer_out},
+                "usage": {"mode": mode, "retrieval": retr_tokens, "answer_in": answer_in,
+                          "answer_out": answer_out, "total": retr_tokens + answer_in + answer_out},
             })
         except Exception as e:
             print(f"🚨 [stream] Fehler: {e}")
@@ -357,12 +394,12 @@ _COMPARISON = {
     "hybrid": {
         "label": "Hybrid + Reranking",
         "hit1": 100, "mrr": 1.00, "recall": 96, "latency_s": 2,
-        "tokens": {"retrieval": 0, "answer": 1237, "total": 1237},
+        "tokens": {"retrieval": 0, "answer": 1262, "total": 1262},
     },
     "pageindex": {
         "label": "PageIndex (vectorless)",
         "hit1": 70, "mrr": 0.82, "recall": 88, "latency_s": 104,
-        "tokens": {"retrieval": 12300, "answer": 2954, "total": 15254},
+        "tokens": {"retrieval": 12261, "answer": 2822, "total": 15083},
     },
 }
 
