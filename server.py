@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from flask import Flask, Response, request, jsonify
+from flask import Flask, Response, request, jsonify, send_from_directory
 from flask_cors import CORS
 from llama_index.core import Settings, PromptTemplate
 from llama_index.core.llms import ChatMessage
@@ -420,6 +420,24 @@ def api_modes():
         "comparison": _COMPARISON,
         "pricing": {"currency": "USD", "cloud": _CLOUD_PRICING, "local_note": "lokal = 0 (nur Strom)"},
     })
+
+
+# Frontend ausliefern: index.html unter "/" und statische Assets (Logo etc.) direkt
+# aus dem Projektordner, damit die App komplett über http://localhost:3001 läuft.
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+@app.route("/")
+def index():
+    return send_from_directory(APP_DIR, "index.html")
+
+
+@app.route("/<path:filename>")
+def static_asset(filename):
+    # API-Pfade nie hier bedienen (die haben eigene Routen)
+    if filename.startswith("api/"):
+        return jsonify({"error": "not found"}), 404
+    return send_from_directory(APP_DIR, filename)
 
 
 if __name__ == "__main__":
