@@ -1,26 +1,25 @@
-"""PageIndex-Retrieval — vectorless, reasoning-based (VectifyAI PageIndex).
+"""PageIndex: vereinfachte Batch-Auswahl von Abschnittstiteln und Summaries.
 
-Statt Vektor-Ähnlichkeit navigiert ein LLM den hierarchischen Tree-Index
-(Titel + Zusammenfassungen) und wählt die relevanten Knoten aus; deren Text
-bildet den Kontext. Der Baum wird offline von build_pageindex_tree.py erzeugt
-(pageindex_tree.json). Läuft vollständig lokal über LM Studio (LiteLLM).
-
-Entspricht dem offiziellen „Vectorless RAG"-Cookbook von PageIndex.
+Die App reicht den gewählten Anbieter (OpenAI oder LM Studio) explizit durch.
+Diese Auswahl implementiert keine vollständige agentische Baum-Tiefensuche.
 """
 from __future__ import annotations
 
-import copy
 import json
 import os
 import re
+import hashlib
+from pathlib import Path
+from dotenv import load_dotenv
 
-from pageindex import utils as pi_utils
+ROOT = Path(__file__).resolve().parent
+load_dotenv(ROOT / ".env")
 
 os.environ.setdefault("LM_STUDIO_API_BASE", "http://127.0.0.1:1234/v1")
 os.environ.setdefault("LM_STUDIO_API_KEY", "lm-studio")
 
-TREE_PATH = os.getenv("PAGEINDEX_TREE", "pageindex_tree.json")
-MODEL = os.getenv("PAGEINDEX_MODEL", "lm_studio/gemma-4-12b-it-mlx")
+TREE_PATH = os.getenv("PAGEINDEX_TREE", str(ROOT / "pageindex_tree.json"))
+MODEL = os.getenv("LOCAL_LLM_MODEL", "automatisch, falls genau ein Chatmodell geladen")
 MAX_NODES = int(os.getenv("PAGEINDEX_MAX_NODES", "5"))
 # Der Manual-Baum ist flach (187 ##-Abschnitte). Bei kleinem Kontextfenster wird
 # die Baum-Navigation in Häppchen (Batches) mit gekürzten Summaries ausgeführt.
@@ -29,6 +28,7 @@ SUMMARY_CHARS = int(os.getenv("PAGEINDEX_SUMMARY_CHARS", "160"))
 
 _tree = None
 _node_map = None
+_signature = None
 
 # Original-Suchprompt (aus dem PageIndex-Cookbook), auf Deutsch.
 SEARCH_PROMPT = """Du erhältst eine Frage und eine Liste von Abschnitten einer Siemens-Waschmaschinen-Bedienungsanleitung.
@@ -47,33 +47,52 @@ Gib direkt das JSON zurück, sonst nichts."""
 
 def load_tree(path: str = TREE_PATH):
     """Lädt den Tree-Index und baut die node_id → Knoten-Map."""
-    global _tree, _node_map
+    global _tree, _node_map, _signature
     with open(path, encoding="utf-8") as f:
-        _tree = json.load(f)
-    _node_map = pi_utils.create_node_mapping(_tree)
+        data = json.load(f)
+    source = ROOT / "siemens_wissen.md"
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    if not isinstance(data, dict) or data.get("source_sha256") != digest:
+        raise ValueError("PageIndex ohne gültigen Quellhash. build_pageindex_tree.py ausführen.")
+    tree = data["structure"]
+    mapping = {}
+    def visit(nodes):
+        for node in nodes:
+            nid = str(node["node_id"])
+            if nid in mapping:
+                raise ValueError("Doppelte PageIndex node_id")
+            mapping[nid] = node
+            visit(node.get("nodes", []))
+    visit(tree)
+    _tree, _node_map = tree, mapping
+    _signature = (str(Path(path).resolve()), Path(path).stat().st_mtime_ns, digest)
     return _tree
 
 
 def _ensure_loaded():
-    if _tree is None:
-        load_tree()
+    digest = hashlib.sha256((ROOT / "siemens_wissen.md").read_bytes()).hexdigest()
+    signature = (str(Path(TREE_PATH).resolve()), Path(TREE_PATH).stat().st_mtime_ns, digest)
+    if _tree is None or signature != _signature:
+        load_tree(TREE_PATH)
+
+
+def tree_available():
+    try:
+        _ensure_loaded()
+        return True
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
 
 
 def default_complete(prompt: str, model: str | None = None) -> str:
-    """Ein LLM-Completion via LiteLLM (LM Studio). Für den Standalone-/Eval-Betrieb."""
-    import litellm
-    litellm.drop_params = True
-    r = litellm.completion(
-        model=model or MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0,
-    )
-    return r.choices[0].message.content or ""
+    """Standalone-/Eval-Aufruf über den konfigurierten Standardanbieter."""
+    from llm_client import make_llm
+    return make_llm().complete(prompt)
 
 
 def _parse_node_list(raw: str) -> list[str]:
     """Robuste Extraktion der node_list aus der LLM-Antwort."""
-    txt = pi_utils.get_json_content(raw) if "```" in raw else raw
+    txt = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
     try:
         data = json.loads(txt)
         ids = data.get("node_list", [])
@@ -81,8 +100,8 @@ def _parse_node_list(raw: str) -> list[str]:
             return [str(x) for x in ids]
     except Exception:
         pass
-    # Fallback: node_id-artige Zahlen aus dem Text ziehen
-    return re.findall(r'"(\d{3,5})"', raw)
+    # Invalid JSON must never turn quoted explanatory numbers into evidence.
+    return []
 
 
 def _flat_nodes() -> list[dict]:
@@ -104,10 +123,17 @@ def search(query: str, complete=None, max_nodes: int = MAX_NODES) -> list[dict]:
     selected: list[str] = []
     for i in range(0, len(items), BATCH):
         batch = items[i:i + BATCH]
+        allowed = {n["node_id"] for n in batch}
         prompt = SEARCH_PROMPT.format(query=query, tree=json.dumps(batch, ensure_ascii=False))
         for nid in _parse_node_list(complete(prompt)):
-            if nid in _node_map and nid not in selected:
+            if nid in allowed and nid not in selected and _node_map[nid].get("text", "").strip():
                 selected.append(nid)
+    # Rank across batches to avoid always preferring earlier document chapters.
+    if len(selected) > max_nodes:
+        candidates = [n for n in items if n["node_id"] in selected]
+        prompt = SEARCH_PROMPT.format(query=query, tree=json.dumps(candidates, ensure_ascii=False))
+        ranked = _parse_node_list(complete(prompt))
+        selected = list(dict.fromkeys(nid for nid in ranked if nid in selected))
     return [_node_map[nid] for nid in selected[:max_nodes]]
 
 
@@ -135,8 +161,8 @@ def retrieve_context(query: str, complete=None) -> tuple[str, list[dict]]:
 
 
 def is_grounded(nodes: list[dict]) -> bool:
-    """Guardrail-Äquivalent: hat die Baum-Navigation relevante Knoten gefunden?"""
-    return bool(nodes)
+    """Prüft vorhandenen Text, kein semantischer Belegtreue-Nachweis."""
+    return any(n.get("text", "").strip() for n in nodes)
 
 
 _PAGE_RE = re.compile(r"Seite\s+(\d{1,3})")
@@ -156,5 +182,5 @@ def format_source_reference(nodes: list[dict]) -> str:
     if title:
         ref += f": {title}"
     if pages:
-        ref += " · Seite " + "/".join(pages[:3])
+        ref += " · Querverweise auf Seite " + "/".join(pages[:3])
     return ref

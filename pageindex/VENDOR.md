@@ -1,10 +1,21 @@
-# Vendored: PageIndex
+# Eingebundener PageIndex-Code
 
-Dieses Verzeichnis ist eine eingebundene Kopie des `pageindex`-Pakets aus
-**VectifyAI/PageIndex** (https://github.com/VectifyAI/PageIndex), Lizenz: MIT.
+Ursprung: [VectifyAI/PageIndex](https://github.com/VectifyAI/PageIndex), MIT-Lizenz
+(siehe [LICENSE](LICENSE)). Die Kopie war bereits im Ausgangscommit
+`a8d9cc4046ed0168561b73879f328e34549a0627` dieses Projekts enthalten.
+Der exakte ursprüngliche Upstream-Commit wurde nicht dokumentiert.
 
-Verwendet für die vectorless, reasoning-based Baum-Index-Erzeugung
-(`md_to_tree`) und die zugehörigen Utilities. Die LLM-Aufrufe laufen über
-LiteLLM und sind auf ein lokales LM-Studio-Modell konfiguriert (DSGVO-konform).
+Der optionale Baumaufbau nutzt `md_to_tree` und LiteLLM. Das Retrieval der
+Web-App steht separat in `pageindex_engine.py` und benutzt den gemeinsamen
+OpenAI-kompatiblen Client. Es ist eine vereinfachte Batch-Auswahl, keine
+vollständige Implementierung des aktuellen PageIndex SDK.
 
-Nicht verändert gegenüber dem Original; bei Updates neu aus dem Upstream ziehen.
+Änderungen im Audit vom 19.09.2026:
+
+- Veraltete PyPDF2-Imports durch `pypdf as PyPDF2` ersetzt.
+- Lokale LiteLLM-Modellkostentabelle als Voreinstellung aktiviert, um beim
+  Import keinen spontanen Netzwerkabruf dieser Tabelle auszulösen.
+- Lizenzdatei ergänzt.
+
+Updates müssen gegen die tatsächlich verwendete API getestet werden.
+Lokaler Betrieb allein ist kein Nachweis einer rechtlichen Datenschutzkonformität.

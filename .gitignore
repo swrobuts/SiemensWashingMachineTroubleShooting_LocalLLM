@@ -27,3 +27,9 @@ storage/
 
 # --- OS ---
 .DS_Store
+
+# Audit build outputs and local configuration backups
+.audit/
+.env.*
+!.env.example
+docs/.build/

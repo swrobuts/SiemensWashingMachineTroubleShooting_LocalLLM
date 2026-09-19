@@ -1,0 +1,7 @@
+-r requirements.txt
+# Optional: PDF extraction and rebuilding the vendored PageIndex tree.
+docling==2.129.0
+litellm==1.101.0
+pymupdf==1.28.2
+pypdf==6.19.0
+pyyaml==6.0.3

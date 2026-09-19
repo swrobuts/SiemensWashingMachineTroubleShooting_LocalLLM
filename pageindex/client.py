@@ -5,7 +5,7 @@ import asyncio
 import concurrent.futures
 from pathlib import Path
 
-import PyPDF2
+import pypdf as PyPDF2
 
 from .page_index import page_index
 from .page_index_md import md_to_tree

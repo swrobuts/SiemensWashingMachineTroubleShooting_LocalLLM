@@ -1,23 +1,25 @@
-from docling.document_converter import DocumentConverter
-import time
+"""Export structured Markdown with actual physical PDF page provenance."""
+from pathlib import Path
+import argparse
 
-pdf_file = "siemens-handbuch.pdf"
-output_file = "siemens_wissen.md"
+ROOT = Path(__file__).resolve().parent
 
-print(f"🚀 Starte Docling... Lese '{pdf_file}' ein.")
-print("Das kann auf Ihrem Mac einen kurzen Moment dauern, da das PDF visuell analysiert wird...")
 
-start_time = time.time()
+def convert(pdf_file=ROOT / "siemens-handbuch.pdf", output_file=ROOT / "siemens_wissen.md"):
+    from docling.document_converter import DocumentConverter
+    result = DocumentConverter().convert(str(pdf_file))
+    pages = [f"<!-- pdf-page: {page} -->\n\n" + result.document.export_to_markdown(page_no=page)
+             for page in sorted(result.document.pages)]
+    target = Path(output_file)
+    temporary = target.with_suffix(".md.tmp")
+    temporary.write_text("\n\n".join(pages), encoding="utf-8")
+    temporary.replace(target)
+    print(f"{len(pages)} PDF-Seiten exportiert: {target}")
 
-# Der KI-gestützte Converter von IBM
-converter = DocumentConverter()
-result = converter.convert(pdf_file)
 
-# Das Ergebnis als sauberes Markdown speichern
-with open(output_file, "w", encoding="utf-8") as f:
-    f.write(result.document.export_to_markdown())
-
-end_time = time.time()
-
-print(f"✅ Erfolgreich! Das Handbuch wurde in {round(end_time - start_time, 1)} Sekunden konvertiert.")
-print(f"📄 Die strukturierte Datei liegt jetzt hier: {output_file}")
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--pdf", type=Path, default=ROOT / "siemens-handbuch.pdf")
+    ap.add_argument("--output", type=Path, default=ROOT / "siemens_wissen.md")
+    args = ap.parse_args()
+    convert(args.pdf, args.output)

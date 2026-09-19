@@ -123,3 +123,56 @@ def test_top_relevance_handles_missing():
     assert rag_engine.top_relevance([]) == 0.0
     assert rag_engine.top_relevance([_ScoredNode(None)]) == 0.0
     assert rag_engine.top_relevance([_ScoredNode(0.7)]) == 0.7
+
+
+def test_code_boundaries():
+    assert rag_engine.extract_error_codes('E:18') != rag_engine.extract_error_codes('E:180')
+    assert rag_engine.extract_error_codes('e : 18') == {'E:18','E18'}
+    assert rag_engine.extract_error_codes('Fehlercode: 23') == {'E:23','E23'}
+
+
+def test_cache_includes_chunk_configuration(tmp_path):
+    md = _write(tmp_path, 'test')
+    assert rag_engine.compute_cache_key(md,'model',chunk_tokens=400) != rag_engine.compute_cache_key(md,'model',chunk_tokens=440)
+
+
+def test_cosine_is_not_treated_as_reranker_confidence():
+    n = _ScoredNode(0.99)
+    assert not rag_engine.is_grounded([n],reranked=False)
+
+
+def test_cross_reference_is_not_source_page():
+    ref = rag_engine.format_source_reference([_StubSN('## E:23\nKundendienst ~ Seite 36')])
+    assert 'Querverweise auf Seite 36' in ref
+    assert 'PDF-Seite' not in ref
+
+
+def test_multiple_tables_and_continuation_rows():
+    from llama_index.core.schema import TextNode
+    text = '## Störungen\n| Fehler | Hilfe |\n|---|---|\n| E:18 | Pumpe |\n| | Schlauch |\n\nText zwischen Tabellen\n\n| Signal | Aktion |\n|---|---|\n| E:23 | Wasserhahn |'
+    nodes = rag_engine._explode_markdown_tables([TextNode(text=text)], max_chars=1)
+    texts = [n.text for n in nodes]
+    assert any('Fehler: E:18; Hilfe: Schlauch' in t for t in texts)
+    assert any('Signal: E:23; Aktion: Wasserhahn' in t for t in texts)
+    assert any('Text zwischen Tabellen' in t for t in texts)
+
+
+def test_hybrid_exact_match_is_first_without_mutation():
+    from llama_index.core.schema import TextNode, NodeWithScore
+    from types import SimpleNamespace as NS
+    exact, wrong = TextNode(text='E:18 Laugenpumpe'), TextNode(text='E:180 anderes Problem')
+    index = NS(docstore=NS(docs={exact.node_id:exact,wrong.node_id:wrong}),
+               as_retriever=lambda **_:NS(retrieve=lambda _: [NodeWithScore(node=wrong,score=0.9)]))
+    nodes = rag_engine.make_retriever(index).retrieve('Fehler E18')
+    assert nodes[0].node.node_id == exact.node_id
+    assert 'exact_code_match' not in exact.metadata
+    assert not nodes[1].node.metadata.get('exact_code_match')
+
+
+def test_true_page_provenance(tmp_path):
+    path=_write(tmp_path,'<!-- pdf-page: 4 -->\n## Hinweise\nE:23 Kundendienst auf Seite 36.')
+    nodes=rag_engine.prepare_nodes(path)
+    assert nodes[0].metadata['pdf_page']==4
+    from llama_index.core.schema import NodeWithScore
+    ref=rag_engine.format_source_reference([NodeWithScore(node=nodes[0],score=1)])
+    assert 'PDF-Seite 4' in ref and '36' not in ref

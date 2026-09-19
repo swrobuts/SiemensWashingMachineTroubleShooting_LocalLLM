@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Siemens Waschmaschine - Troubleshooting</title>
     <!-- Lokale QR-Bibliothek -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="/assets/qrcode.min.js"></script>
     <style>
         /* Bauhaus / Siemens Inspired CSS */
         :root {
@@ -61,6 +61,15 @@
             color: var(--siemens-cyan);
             font-weight: bold;
             text-transform: uppercase;
+        }
+
+        @media (max-width: 640px) {
+            header { padding: 20px; flex-wrap: wrap; gap: 12px; }
+            .header-left { flex-wrap: wrap; gap: 12px; }
+            .header-left h1 { font-size: 19px; padding-left: 16px; }
+            .header-right { font-size: 12px; }
+            .search-box input { min-width: 0; flex: 1; }
+            .search-box button { padding: 15px 20px; }
         }
 
         main {
@@ -419,6 +428,93 @@
         .kpi b { color: #2E9E5B; }
         #tokenViz, #costViz { margin-top: 18px; }
         #tokenViz svg, #costViz svg { display: block; }
+
+        .key-settings { text-align:left; max-width:680px; margin:10px auto 28px; border-top:1px solid #dbe4e8; border-bottom:1px solid #dbe4e8; padding:14px 0; }
+        .key-settings summary { cursor:pointer; color:#16515a; font-weight:600; }
+        .key-settings p { color:#53666d; font-size:14px; }
+        .key-form label { display:block; margin:16px 0 6px; font-size:14px; font-weight:600; }
+        .key-form input { box-sizing:border-box; width:100%; padding:12px; font-size:16px; border:1px solid #b7c7ce; }
+        .key-actions { display:flex; flex-wrap:wrap; gap:10px; margin:12px 0; }
+        .key-actions button { padding:10px 16px; border:1px solid #007c85; background:#007c85; color:white; cursor:pointer; font-size:14px; }
+        .key-actions .secondary { background:white; color:#16515a; }
+        #keyStatus { min-height:24px; }
+        .explain { color:#18343e; padding-bottom:24px; }
+        .explain-intro { display:block; background:white; color:inherit; padding:16px 0 52px; border:0; max-width:790px; }
+        .eyebrow { font-size:12px; font-weight:700; letter-spacing:2px; color:#007c85; margin:0 0 20px; }
+        .explain h2 { font-size:44px; line-height:1.15; letter-spacing:-1.3px; margin:0 0 24px; font-weight:500; }
+        .explain-lead { font-size:19px; line-height:1.65; color:#526870; max-width:740px; margin:0; }
+        .explain-section { padding:38px 0 44px; border-top:1px solid #d9e3e7; }
+        .section-heading { display:flex; align-items:baseline; gap:18px; margin-bottom:24px; }
+        .section-number { font-size:13px; font-weight:700; color:#007c85; }
+        .explain h3 { font-size:25px; line-height:1.3; font-weight:500; margin:0; letter-spacing:-.4px; }
+        .section-intro { margin:0 0 28px; color:#526870; max-width:750px; }
+        .rag-journey { padding:0; list-style:none; display:grid; grid-template-columns:repeat(4,1fr); gap:28px; margin:38px 0; }
+        .rag-journey li { border-top:2px solid #97cacb; padding-top:16px; position:relative; }
+        .rag-journey li:not(:last-child)::after { content:'→'; position:absolute; right:-20px; top:-18px; color:#007c85; font-size:22px; background:white; }
+        .journey-number { font-size:12px; color:#007c85; font-weight:700; }
+        .explain h4 { font-size:19px; line-height:1.4; font-weight:600; margin:10px 0; }
+        .rag-journey p { font-size:15px; line-height:1.6; color:#526870; margin:0; }
+        .source-example { margin-top:26px; padding:22px 26px; border-left:3px solid #007c85; background:#f0f7f7; }
+        .source-example>span { font-size:11px; letter-spacing:1.4px; color:#007c85; font-weight:700; }
+        .source-example p { font-size:19px; margin:10px 0; }
+        .source-example small { display:block; color:#526870; line-height:1.6; }
+        .method-columns,.provider-comparison { display:grid; grid-template-columns:1fr 1fr; gap:46px; }
+        .method-columns section+section,.provider-comparison section+section { border-left:1px solid #d9e3e7; padding-left:40px; }
+        .method-label { font-size:11px; letter-spacing:1.3px; font-weight:700; color:#007c85; margin:0 0 14px; }
+        .experimental { color:#98702d; }
+        .method-columns p:not(.method-label),.provider-comparison p { color:#526870; font-size:16px; }
+        .method-result { font-size:14px!important; margin-top:22px; }
+        .tech-detail { margin-top:26px; padding:18px 0 0; border-top:1px solid #e1e9ec; }
+        .tech-detail summary { color:#007c85; cursor:pointer; font-weight:600; font-size:14px; }
+        .plain-glossary { margin:22px 0 0; }
+        .plain-glossary>div { display:grid; grid-template-columns:150px 1fr; gap:20px; padding:15px 0; }
+        .plain-glossary dt { font-weight:600; color:#18343e; }
+        .plain-glossary dd { margin:0; color:#526870; }
+        .provider-symbol { color:#007c85; font-size:28px; }
+        .provider-comparison small { font-size:14px; color:#526870; line-height:1.6; display:block; }
+        .privacy-line { margin:32px 0 0; padding-top:24px; border-top:1px solid #e1e9ec; font-size:14px; color:#526870; }
+        .limits-copy { display:grid; grid-template-columns:1fr 1fr; gap:46px; color:#526870; }
+        .limits-copy p { margin:0; }
+        .explain-footer { display:flex; flex-wrap:wrap; justify-content:space-between; gap:16px; margin-top:38px; color:#73868d; font-size:12px; }
+        .explain-footer a { color:#007c85; text-decoration:none; border-bottom:1px solid #a3d1d3; }
+        @media(max-width:700px) {
+            .explain h2 { font-size:34px; }
+            .explain-lead { font-size:17px; }
+            .explain h3 { font-size:23px; }
+            .explain-intro { padding-bottom:34px; }
+            .rag-journey { grid-template-columns:1fr 1fr; gap:24px; }
+            .rag-journey li::after { display:none; }
+            .method-columns,.provider-comparison,.limits-copy { grid-template-columns:1fr; gap:28px; }
+            .method-columns section+section,.provider-comparison section+section { border-left:0; padding-left:0; border-top:1px solid #d9e3e7; padding-top:26px; }
+            .plain-glossary>div { grid-template-columns:1fr; gap:6px; }
+        }
+
+
+        .system-scope { color:#526870; font-size:13px; margin-top:28px; }
+        .system-scope span { color:#a7c1c7; padding:0 8px; }
+        .explain code { font-family:Consolas,'SFMono-Regular',monospace; font-size:.9em; overflow-wrap:anywhere; color:#185c64; }
+        .pipeline-facts { margin:20px 0 0; }
+        .pipeline-facts>div { margin-bottom:20px; }
+        .pipeline-facts dt { color:#18343e; font-size:13px; font-weight:700; margin-bottom:5px; }
+        .pipeline-facts dd { margin:0; color:#526870; font-size:15px; line-height:1.65; }
+        .implementation-note { margin:28px 0 0; padding:18px 22px; border-left:3px solid #74b8bc; background:#f3f8f8; color:#526870; font-size:14px; line-height:1.7; }
+        .contract-grid { display:grid; grid-template-columns:1fr 1fr; gap:44px; }
+        .contract-grid p:not(.method-label) { color:#526870; font-size:15px; line-height:1.7; }
+        .request-example { font-family:Consolas,'SFMono-Regular',monospace; font-size:14px; line-height:1.7; background:#f3f8f8; border:1px solid #d9e7e8; padding:20px; overflow-x:auto; }
+        .technical-small { color:#526870; font-size:13px; line-height:1.7; }
+        .event-sequence { display:flex; flex-wrap:wrap; gap:16px; padding:22px 0; align-items:center; }
+        .event-sequence span { color:#8bb4ba; }
+        .metrics-wrap { overflow-x:auto; margin:26px 0 16px; }
+        .metrics-table { border-collapse:collapse; width:100%; font-size:14px; text-align:left; }
+        .metrics-table caption { text-align:left; font-size:12px; color:#526870; padding-bottom:12px; }
+        .metrics-table th,.metrics-table td { padding:14px 16px; border-bottom:1px solid #d9e3e7; white-space:nowrap; }
+        .metrics-table thead th { color:#526870; font-weight:600; border-top:1px solid #d9e3e7; }
+        .metrics-table th:first-child,.metrics-table td:first-child { padding-left:0; }
+        .metrics-table td { font-variant-numeric:tabular-nums; }
+        .measured-default { color:#00747e; background:#f3f8f8; }
+        .explain .limits-copy { margin-top:28px; font-size:15px; line-height:1.7; }
+        @media(max-width:700px) { .contract-grid { grid-template-columns:1fr; gap:24px; } }
+
     </style>
 </head>
 <body>
@@ -430,7 +526,7 @@
         <h1>Service & Support</h1>
     </div>
     <div class="header-right">
-        Local AI Troubleshooting
+        RAG mit LM Studio / OpenAI
     </div>
 </header>
 
@@ -450,6 +546,25 @@
             <input type="text" id="searchInput" placeholder="z.B. 'Wasser läuft aus' oder 'Error E:23'">
             <button onclick="performSearch()">Suchen</button>
         </div>
+        <div class="mode-row">
+            <span class="mode-label">Antwortmodell</span>
+            <div class="mode-toggle" role="group" aria-label="Antwortmodell auswählen">
+                <button class="mode-opt provider-opt active" data-provider="local" aria-pressed="true" onclick="setProvider('local')">Lokal (LM Studio)</button>
+                <button class="mode-opt provider-opt" data-provider="openai" aria-pressed="false" onclick="setProvider('openai')">OpenAI API</button>
+            </div>
+            <span class="mode-hint" id="providerHint">Antwort über den konfigurierten LM-Studio-Server.</span>
+        </div>
+
+        <details class="key-settings" id="keySettings">
+            <summary>OpenAI-Schlüssel für diese Sitzung</summary>
+            <p>Der Key bleibt nur im Arbeitsspeicher dieses lokalen App-Servers. Nach einem Neustart oder spätestens nach acht Stunden ist eine neue Eingabe nötig.</p>
+            <form class="key-form" onsubmit="event.preventDefault(); configureOpenAIKey();">
+                <label for="openaiKeyInput">OpenAI API-Key</label>
+                <input type="password" id="openaiKeyInput" autocomplete="off" spellcheck="false" maxlength="512" placeholder="API-Key eingeben">
+                <div class="key-actions"><button type="submit">Für diese Sitzung verwenden</button><button class="secondary" type="button" onclick="configureOpenAIKey(true)">Key entfernen</button></div>
+            </form>
+            <p id="keyStatus" role="status" aria-live="polite">Kein Schlüssel für diese Sitzung hinterlegt.</p>
+        </details>
         <div class="mode-row">
             <span class="mode-label">Retrieval-Verfahren</span>
             <div class="mode-toggle" id="modeToggle">
@@ -484,11 +599,11 @@
                 <!-- QR Code Button -->
                 <div class="qr-wrapper">
                     <button class="action-btn" onclick="toggleQR()" style="width: auto;">
-                        📱 Aufs Handy übertragen
+                        Frage als QR-Code
                     </button>
                     <div id="qrcode-container">
                         <div style="margin-bottom: 10px; font-size: 14px; font-weight: bold; color: var(--siemens-navy);">QR-Code scannen</div>
-                        <div id="qrcode"></div>
+                        <div id="qrcode"></div><p id="qr-note" style="font-size:12px"></p>
                     </div>
                 </div>
             </div>
@@ -512,84 +627,122 @@
     </section>
   </div><!-- /tab-support -->
 
+
+
   <div id="tab-analyse" class="tab-panel">
-    <section class="an">
-      <h2>Zwei Retrieval-Verfahren im Vergleich</h2>
-      <p class="an-intro">Der Assistent findet die passenden Handbuch-Abschnitte auf zwei Arten — im Support-Tab per Toggle umschaltbar. Beide laufen vollständig lokal (kein Cloud-Aufruf).</p>
+    <article class="explain">
+      <header class="explain-intro">
+        <p class="eyebrow">IMPLEMENTIERUNG · DATENFLUSS · EVALUATION</p>
+        <h2>Architektur des<br>RAG-Systems</h2>
+        <p class="explain-lead">Die Anwendung erschließt eine Siemens-Anleitung über zwei Retrieval-Pipelines. Embeddings, Vektorspeicher und Reranking laufen lokal. Der Modelladapter verbindet wahlweise LM Studio oder die OpenAI API für die Antwortgenerierung.</p>
+        <p class="system-scope">48 PDF-Seiten <span>•</span> 384 Dimensionen pro Embedding <span>•</span> Eine gemeinsame Wissensbasis</p>
+      </header>
 
-      <h3>Architektur</h3>
-      <svg viewBox="0 0 900 250" style="width:100%;height:auto;font-family:'Helvetica Neue',Arial,sans-serif">
-        <defs>
-          <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-            <path d="M0,0 L6,3 L0,6 Z" fill="#000028"/>
-          </marker>
-        </defs>
-        <text x="10" y="20" font-size="12" fill="#00AAB4" font-weight="bold">OFFLINE (einmalig)</text>
-        <text x="10" y="38" font-size="12" fill="#666">PDF → Docling → Markdown  →  Vektorindex (Hybrid)  ·  Tree-Index mit Zusammenfassungen (PageIndex)</text>
+      <section class="explain-section" aria-labelledby="ingestion-title">
+        <div class="section-heading"><span class="section-number">01</span><h3 id="ingestion-title">Ingestion und Indexierung</h3></div>
+        <ol class="rag-journey">
+          <li><span class="journey-number">QUELLE</span><h4>PDF → Markdown</h4><p>Docling extrahiert Text und Tabellen. Der überarbeitete Parser ergänzt physische PDF-Seitenmarker.</p></li>
+          <li><span class="journey-number">STRUKTUR</span><h4>Tokenbegrenzte Chunks</h4><p>Überschriften und Tabellenzeilen bilden Abschnitte. E5-Tokenizer: 440 Tokens, 40 Tokens Überlappung.</p></li>
+          <li><span class="journey-number">REPRÄSENTATION</span><h4>Text → Vektor</h4><p>multilingual-e5-small erzeugt 384 Dimensionen. Textpassagen verwenden das Präfix <code>passage:</code>.</p></li>
+          <li><span class="journey-number">PERSISTENZ</span><h4>LlamaIndex / JSON</h4><p>SimpleVectorStore, Docstore und Index-Metadaten liegen unter <code>storage/</code>. Kein externer Datenbankserver.</p></li>
+        </ol>
+        <p class="implementation-note"><strong>Aktive Quelle:</strong> Die vorhandene Markdown-Datei besitzt noch keine verlässlichen Fundseiten-Metadaten. Seitenangaben in ihrem Text sind Querverweise. Neue Parser-Ausgaben unterstützen echte PDF-Seitenmarker; eine vollständige Neu-Extraktion muss vor dem Austausch geprüft werden.</p>
+        <details class="tech-detail"><summary>Chunking, Embedding-Modell und Cache-Konsistenz</summary>
+          <dl class="plain-glossary">
+            <div><dt>Tabellen</dt><dd>Große Tabellen werden zeilenweise zerlegt. Spaltenüberschriften bleiben erhalten; Fortsetzungszeilen übernehmen das vorherige Zeilenthema. Anschließend begrenzt der Token-Splitter die Länge.</dd></div>
+            <div><dt>Embedding-Raum</dt><dd>Fragen verwenden <code>query:</code>, Passagen <code>passage:</code>. Beide werden mit demselben E5-Modell encodiert. Dessen Kontextlimit beträgt 512 Tokens; Metadaten gehen nicht zusätzlich in das Embedding ein.</dd></div>
+            <div><dt>Fingerprint</dt><dd>SHA-256 bindet den Vektorcache an Quelltext, Modellname, Parser-Version und Chunking-Parameter. Ein FileLock serialisiert den Indexaufbau. Ein veränderter Fingerprint löst einen Neuaufbau aus.</dd></div>
+            <div><dt>PageIndex-Artefakt</dt><dd>Separater JSON-Baum mit 187 Abschnitts-IDs, Titeln, Zusammenfassungen und Originaltexten. Ein Quellhash verhindert die Verwendung mit einer anderen Markdown-Version.</dd></div>
+          </dl>
+        </details>
+      </section>
 
-        <!-- Hybrid lane -->
-        <text font-size="12.5" fill="#000028" font-weight="bold"><tspan x="10" y="76">Hybrid</tspan><tspan x="10" y="91">· Vektor</tspan></text>
-        <g font-size="11.5" fill="#22242E">
-          <rect x="120" y="66" width="70"  height="30" rx="4" fill="#000028"/><text x="155" y="85" fill="#fff" text-anchor="middle">Frage</text>
-          <rect x="210" y="66" width="150" height="30" rx="4" fill="#ECEEF1" stroke="#000028"/><text x="285" y="85" text-anchor="middle">Vektor + Code-Lookup</text>
-          <rect x="380" y="66" width="95"  height="30" rx="4" fill="#ECEEF1" stroke="#000028"/><text x="427" y="85" text-anchor="middle">Reranking</text>
-          <rect x="495" y="66" width="110" height="30" rx="4" fill="#00AAB4"/><text x="550" y="85" fill="#fff" text-anchor="middle">Top-5 → LLM</text>
-          <rect x="625" y="66" width="85"  height="30" rx="4" fill="#000028"/><text x="667" y="85" fill="#fff" text-anchor="middle">Antwort</text>
-          <line x1="190" y1="81" x2="208" y2="81" stroke="#000028" marker-end="url(#ah)"/>
-          <line x1="360" y1="81" x2="378" y2="81" stroke="#000028" marker-end="url(#ah)"/>
-          <line x1="475" y1="81" x2="493" y2="81" stroke="#000028" marker-end="url(#ah)"/>
-          <line x1="605" y1="81" x2="623" y2="81" stroke="#000028" marker-end="url(#ah)"/>
-        </g>
-        <text x="730" y="85" font-size="11" fill="#2E9E5B">Retrieval LLM-frei</text>
+      <section class="explain-section" aria-labelledby="retrieval-title">
+        <div class="section-heading"><span class="section-number">02</span><h3 id="retrieval-title">Query-Pipeline: Hybrid und PageIndex</h3></div>
+        <p class="section-intro">Der GUI-Schalter wählt das Retrieval-Verfahren unabhängig vom Modellanbieter. „Hybrid“ bezeichnet hier die Kombination aus dichter Vektorsuche und exaktem Fehlercode-Lookup. BM25 und Reciprocal Rank Fusion sind nicht implementiert.</p>
+        <div class="method-columns">
+          <section><p class="method-label">STANDARD · HYBRID</p><h4>Kandidatensuche und Cross-Encoder</h4>
+            <dl class="pipeline-facts">
+              <div><dt>Kandidaten</dt><dd>Kosinusähnlichkeit liefert Top 12. Normalisierte Fehlercodes ergänzen exakte Treffer; doppelte Nodes entfallen.</dd></div>
+              <div><dt>Reranking</dt><dd><code>bge-reranker-v2-m3</code> bewertet Frage und Passage gemeinsam. Explizite Sigmoid-Abbildung; anschließend Top 5.</dd></div>
+              <div><dt>Freigabe</dt><dd>Höchster Score ≥ 0,15. Ein gefragter Fehlercode muss im Kontext vorkommen. Ohne Reranker akzeptiert der Fallback nur exakte Codes.</dd></div>
+              <div><dt>LLM-Aufrufe</dt><dd>Keine in der Suche. Bei ausreichendem Kontext folgt die Antwortgenerierung.</dd></div>
+            </dl>
+          </section>
+          <section><p class="method-label experimental">EXPERIMENTELL · PAGEINDEX</p><h4>LLM-gestützte Abschnittsauswahl</h4>
+            <dl class="pipeline-facts">
+              <div><dt>Kandidaten</dt><dd>187 Abschnittsübersichten in Batches zu 30. Zusammenfassungen sind auf 160 Zeichen begrenzt.</dd></div>
+              <div><dt>Auswahl</dt><dd>7 sequenzielle LLM-Aufrufe. Bei mehr als 5 ausgewählten IDs folgt eine globale Auswahl; maximal 5 Originaltexte.</dd></div>
+              <div><dt>Validierung</dt><dd>Gültiges JSON, IDs aus dem jeweiligen Batch, nichtleerer Text und vorhandene Fehlercodes. Kein gleichwertiger semantischer Relevanzfilter.</dd></div>
+              <div><dt>Abgrenzung</dt><dd>Vereinfachte Batch-Auswahl über Abschnittslisten; keine vollständige agentische Tiefensuche im Baum.</dd></div>
+            </dl>
+          </section>
+        </div>
+        <p class="implementation-note"><strong>Score ≠ Antwortkorrektheit:</strong> 0,15 ist ein Projektparameter und keine kalibrierte Wahrscheinlichkeit. Ein relevanter Kontext kann unvollständig sein; die Generierung kann trotz passender Quellen unbelegte Aussagen erzeugen.</p>
+      </section>
 
-        <!-- PageIndex lane -->
-        <text font-size="12.5" fill="#000028" font-weight="bold"><tspan x="10" y="166">PageIndex</tspan><tspan x="10" y="181">· vectorless</tspan></text>
-        <g font-size="11.5" fill="#22242E">
-          <rect x="120" y="156" width="70"  height="30" rx="4" fill="#000028"/><text x="155" y="175" fill="#fff" text-anchor="middle">Frage</text>
-          <rect x="210" y="156" width="175" height="30" rx="4" fill="#D98A0B"/><text x="297" y="175" fill="#fff" text-anchor="middle">LLM navigiert Tree-Index</text>
-          <rect x="405" y="156" width="130" height="30" rx="4" fill="#ECEEF1" stroke="#000028"/><text x="470" y="175" text-anchor="middle">gewählte Abschnitte</text>
-          <rect x="555" y="156" width="70"  height="30" rx="4" fill="#00AAB4"/><text x="590" y="175" fill="#fff" text-anchor="middle">LLM</text>
-          <rect x="645" y="156" width="85"  height="30" rx="4" fill="#000028"/><text x="687" y="175" fill="#fff" text-anchor="middle">Antwort</text>
-          <line x1="190" y1="171" x2="208" y2="171" stroke="#000028" marker-end="url(#ah)"/>
-          <line x1="385" y1="171" x2="403" y2="171" stroke="#000028" marker-end="url(#ah)"/>
-          <line x1="535" y1="171" x2="553" y2="171" stroke="#000028" marker-end="url(#ah)"/>
-          <line x1="625" y1="171" x2="643" y2="171" stroke="#000028" marker-end="url(#ah)"/>
-        </g>
-        <text x="748" y="175" font-size="11" fill="#C0392B">Retrieval per LLM</text>
-      </svg>
-      <p class="arch-note">Kernunterschied: Hybrid rechnet Vektor-Ähnlichkeit (kein LLM im Retrieval); PageIndex lässt ein LLM den Abschnitts-Baum durchsuchen — erklärbar, aber tokenintensiv.</p>
+      <section class="explain-section" aria-labelledby="adapter-title">
+        <div class="section-heading"><span class="section-number">03</span><h3 id="adapter-title">Modelladapter und Datenübertragung</h3></div>
+        <p class="section-intro">Der Anbieter wird pro Anfrage übergeben. Es gibt keine Umschaltung globaler Zugangsdaten. Bei PageIndex verwendet auch die Abschnittsauswahl den gewählten Anbieter.</p>
+        <div class="provider-comparison">
+          <section><span class="provider-symbol" aria-hidden="true">▣</span><h4>LM Studio</h4><p>OpenAI-kompatibler Endpoint, standardmäßig <code>http://127.0.0.1:1234/v1</code>. Die Modell-ID entspricht dem geladenen Chatmodell. Automatische Auswahl erfolgt nur bei genau einem verfügbaren Chatmodell.</p><small>127.0.0.1 bezieht sich auf den App-Rechner. Für LM Studio auf dem Mac müssen App und Modell auf demselben Mac laufen oder der tatsächliche Mac-Endpoint konfiguriert sein.</small></section>
+          <section><span class="provider-symbol" aria-hidden="true">↗</span><h4>OpenAI API</h4><p>HTTPS-Verbindung zu <code>api.openai.com/v1</code>, standardmäßig <code>gpt-4.1-mini</code>. Die App überträgt Frage und ausgewählte Handbuchauszüge. Embeddings und Reranking bleiben lokal.</p><small>Der SDK-Client ist an die aktuelle Anfrage gebunden und wird anschließend geschlossen. Der API-Key dient zur Anmeldung und wird nicht in den Prompt aufgenommen.</small></section>
+        </div>
+        <details class="tech-detail"><summary>Sitzungsschlüssel und lokale Vertrauensgrenze</summary>
+          <dl class="plain-glossary">
+            <div><dt>Speicherung</dt><dd>Key-Eingabe im GUI, danach ausschließlich im Arbeitsspeicher des lokalen Servers. Kein Key in Konfigurationsdateien, GitHub, localStorage, sessionStorage oder Cookies. Das Passwortfeld wird nach Übernahme geleert.</dd></div>
+            <div><dt>Isolation</dt><dd>Eigener Key pro Browsersitzung. Das HttpOnly-Cookie mit SameSite=Strict enthält nur zufällige Sitzungs-ID und CSRF-Token. Key-Änderungen benötigen den CSRF-Token.</dd></div>
+            <div><dt>Lebensdauer</dt><dd>Maximal acht Stunden gültig. Entfernen oder Serverneustart sperren weitere Aufrufe. Bereits begonnene Anbieteraufrufe können noch enden.</dd></div>
+            <div><dt>Zugriff</dt><dd>Die App akzeptiert nur Loopback-Verbindungen, erlaubte Hostnamen und passende Origins. API-Antworten sind nicht cachebar. Fehlerprotokolle enthalten nur den Ausnahmetyp.</dd></div>
+          </dl>
+        </details>
+      </section>
 
-      <h3>Gegenüberstellung</h3>
-      <div id="cmpTable"></div>
+      <section class="explain-section" aria-labelledby="contract-title">
+        <div class="section-heading"><span class="section-number">04</span><h3 id="contract-title">Generierung, Streaming und Provenienz</h3></div>
+        <div class="contract-grid">
+          <div><p class="method-label">ANFRAGEVERTRAG</p><pre class="request-example">POST /api/ask_stream
+{
+  "frage": "Was bedeutet E:23?",
+  "mode": "hybrid",
+  "provider": "local"
+}</pre><p class="technical-small">1–2000 Zeichen pro Frage. Maximale Request-Größe: 16 KiB. Ungültige Eingaben: HTTP 400. Konfigurations- und Modellfehler: HTTP 503 bzw. SSE-Fehlerereignis nach Streambeginn.</p></div>
+          <div><p class="method-label">ANTWORTVERARBEITUNG</p><p>Systemprompt und Nutzerdaten sind getrennt. Der Prompt begrenzt Antworten auf den bereitgestellten Kontext. Kontextbudget: 14.000 Zeichen; größere Kontexte werden abgelehnt. Maximale Ausgabe: 1.024 Tokens.</p><p>Das strukturierte Antwortformat wird geparst. Ein Abbruch am Tokenlimit gilt als Fehler. Der Browser maskiert dynamisches HTML; Quelltexte werden als Text dargestellt.</p></div>
+        </div>
+        <div class="event-sequence" aria-label="SSE-Ereignisse"><code>status</code><span>→</span><code>meta</code><span>→</span><code>token</code><span>→</span><code>result</code><span>→</span><code>[DONE]</code></div>
+        <p class="implementation-note"><strong>Provenienz:</strong> Die Antwort enthält die verwendeten Nodes mit Abschnitt, Originaltext und gegebenenfalls PDF-Seite bzw. Score. Das ermöglicht Nachprüfung, ersetzt aber keine semantische Belegprüfung. Angezeigte Tokenzahlen betreffen nur den Antwortaufruf; PageIndex-Auswahlaufrufe sind darin nicht enthalten.</p>
+      </section>
 
-      <h3>Tokenverbrauch je Frage</h3>
-      <p class="an-note">Real gemessen (Beispiel „Fehler E:18", gemma-4-12b). Aufgeteilt in Retrieval (Kontextsuche) und Antwort-Generierung.</p>
-      <div id="tokenViz"></div>
-
-      <h3>Kostenersparnis gegenüber einem Cloud-Modell</h3>
-      <p class="an-note"><b>Der lokale Betrieb kostet nichts</b> — Hybrid wie PageIndex laufen auf diesem Rechner mit <b>$0 API-Kosten</b> (nur Strom). Die Cloud-Beträge unten sind <b>hypothetisch</b>: so viel würde <b>dieselbe</b> Anfrage kosten, wenn sie statt lokal über ein Cloud-Modell liefe. Das ist die <b>vermiedene</b> Kostensumme = deine Ersparnis. Es wird nichts abgerechnet (Anthropic-Preise, US-$).</p>
-      <div class="cost-controls">
-        <span class="mode-label">Cloud-Modell zum Vergleich:</span>
-        <select id="cloudModel" onchange="renderCost()"></select>
-      </div>
-      <div id="costViz"></div>
-    </section>
+      <section class="explain-section" aria-labelledby="eval-title">
+        <div class="section-heading"><span class="section-number">05</span><h3 id="eval-title">Retrieval-Evaluation</h3></div>
+        <p class="section-intro">Messung vom 19.09.2026 am realen Handbuch. Zehn vorhandene Fragen, Top 5 finale Treffer. Alle Varianten verwenden denselben aktualisierten Index; die Ablation variiert Fehlercode-Lookup und Reranking.</p>
+        <div class="metrics-wrap"><table class="metrics-table"><caption>Stichwortbasierte Suchmetriken, n = 10</caption><thead><tr><th scope="col">Variante</th><th scope="col">Hit@5</th><th scope="col">Hit@1</th><th scope="col">MRR</th><th scope="col">Abdeckung</th></tr></thead><tbody><tr><th scope="row">Vektor allein</th><td>90 %</td><td>60 %</td><td>0,725</td><td>73,5 %</td></tr><tr><th scope="row">Hybrid ohne Reranker</th><td>100 %</td><td>70 %</td><td>0,825</td><td>88,5 %</td></tr><tr class="measured-default"><th scope="row">Hybrid mit Reranker</th><td>100 %</td><td>90 %</td><td>0,950</td><td>91,0 %</td></tr></tbody></table></div>
+        <p class="technical-small"><strong>Definitionen:</strong> Hit@k verlangt mindestens ein erwartetes Stichwort in den Top k. MRR mittelt den Kehrwert des ersten Stichworttrefferrangs. Abdeckung bezeichnet den Anteil gefundener erwarteter Stichwörter.</p>
+        <div class="limits-copy"><p><strong>Aussagebereich.</strong> Die Werte belegen Suchverhalten auf diesem kleinen Testset. Sie messen weder fachlich annotierte Dokumentrelevanz noch Antworttreue. Vier ergänzte Gegenbeispiele wurden abgelehnt; daraus folgt keine allgemeine Robustheitsgarantie.</p><p><strong>Offene Validierung.</strong> Reale LM-Studio-Antworten auf dem Mac, vollständige OpenAI-RAG-Antwortprüfung und ein größerer fachlich annotierter Testbestand stehen aus. PageIndex bleibt experimentell.</p></div>
+        <footer class="explain-footer"><span>Implementierungsstand 19.09.2026</span><a href="https://github.com/swrobuts/SiemensWashingMachineTroubleShooting_LocalLLM/blob/main/docs/AUDIT.md" target="_blank" rel="noopener noreferrer">Prüfbericht und Messprotokolle ↗</a><a href="https://github.com/swrobuts/SiemensWashingMachineTroubleShooting_LocalLLM/blob/main/docs/TECHNICAL.md" target="_blank" rel="noopener noreferrer">Technische Dokumentation ↗</a></footer>
+      </section>
+    </article>
   </div>
 </main>
 
 <script>
     // System Variablen
-    const API = 'http://localhost:3001';
+    const API = location.protocol === 'file:' ? 'http://127.0.0.1:3001' : location.origin;
+    let activeRequest = null;
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     let currentTtsText = "";
     let lastQuery = "";
     let currentMode = 'hybrid';
+    let currentProvider = 'local';
+    let openaiConfigured = false;
+    let csrfToken = '';
     let pageindexAvailable = false;
     let comparison = null;
     let pricing = null;
     let analysisRendered = false;
 
-    window.onload = function() {
-        loadModes();
+    window.onload = async function() {
+        await loadModes();
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('q')) {
             document.getElementById('searchInput').value = urlParams.get('q');
@@ -605,19 +758,51 @@
         if (t === 'analyse' && !analysisRendered) renderAnalysis();
     }
 
+    function setProvider(provider) {
+        if (provider === 'openai' && !openaiConfigured) return;
+        cancelPendingRequest();
+        currentProvider = provider;
+        document.querySelectorAll('.provider-opt').forEach(button => {
+            button.classList.toggle('active', button.dataset.provider === provider);
+            button.setAttribute('aria-pressed', String(button.dataset.provider === provider));
+        });
+        document.getElementById('providerHint').textContent = provider === 'openai'
+            ? 'Frage und Handbuchauszüge gehen an OpenAI. API-Nutzung ist kostenpflichtig.'
+            : 'Antwort über den konfigurierten LM-Studio-Server.';
+    }
+
     function setMode(m) {
         if (m === 'pageindex' && !pageindexAvailable) return;
+        cancelPendingRequest();
         currentMode = m;
-        document.querySelectorAll('.mode-opt').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+        document.querySelectorAll('.mode-opt[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
         document.getElementById('modeHint').textContent = m === 'pageindex'
-            ? 'reasoning-basiert · erklärbar · langsam · tokenintensiv'
+            ? 'Experimentelle Abschnittsauswahl mit mehreren Modellaufrufen'
             : '';
+    }
+
+    function cancelPendingRequest() {
+        if (!activeRequest) return;
+        activeRequest.abort();
+        activeRequest = null;
+        const status = document.getElementById('live-status');
+        if (status) {
+            document.getElementById('results-list').textContent =
+                'Auswahl geändert. Bitte starten Sie die Frage erneut.';
+        }
     }
 
     async function loadModes() {
         try {
             const d = await (await fetch(API + '/api/modes')).json();
             pageindexAvailable = !!d.pageindex_available;
+            openaiConfigured = !!d.openai_configured;
+            csrfToken = d.csrf_token || '';
+            document.getElementById('keyStatus').textContent = openaiConfigured ? 'Schlüssel für diese Sitzung hinterlegt.' : 'Kein Schlüssel für diese Sitzung hinterlegt.';
+            const oaButton = document.querySelector('[data-provider="openai"]');
+            oaButton.disabled = !openaiConfigured;
+            oaButton.title = openaiConfigured ? 'OpenAI API verwenden' : 'API-Schlüssel unten für diese Sitzung eingeben';
+            setProvider(openaiConfigured ? (d.provider || 'local') : 'local');
             comparison = d.comparison;
             pricing = d.pricing;
             const piBtn = document.querySelector('.mode-opt[data-mode="pageindex"]');
@@ -626,132 +811,34 @@
         } catch (e) { setMode('hybrid'); }
     }
 
+
+    async function configureOpenAIKey(remove = false) {
+        cancelPendingRequest();
+        const input = document.getElementById('openaiKeyInput');
+        const status = document.getElementById('keyStatus');
+        try {
+            const response = await fetch(API + '/api/openai_key', {
+                method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},
+                body:JSON.stringify({key:remove ? null : input.value.trim()})
+            });
+            if (!response.ok) throw new Error('Bitte Eingabe prüfen oder die Seite neu laden.');
+            await loadModes();
+            if (!remove) setProvider('openai');
+            status.textContent = remove ? 'Schlüssel aus dieser Sitzung entfernt.' : 'Schlüssel für diese Sitzung hinterlegt. Er wird nicht dauerhaft gespeichert.';
+        } catch (error) {
+            status.textContent = 'Schlüssel konnte nicht übernommen werden. Bitte Eingabe prüfen oder die Seite neu laden.';
+        } finally {
+            input.value = '';
+        }
+    }
+
     function showUsage(u) {
         const el = document.getElementById('usageLine');
-        if (!el || !u) return;
-        const f = n => (n || 0).toLocaleString('de-DE');
-        let cloud = '';
-        if (pricing && pricing.cloud && pricing.cloud[0]) {
-            const m = pricing.cloud[0];
-            const inTok = (u.retrieval || 0) + (u.answer_in || 0), outTok = (u.answer_out || 0);
-            cloud = ` · lokal $0 (hypothetisch auf ${m.label}: ~${usd(inTok / 1e6 * m.in + outTok / 1e6 * m.out)} gespart)`;
-        }
-        el.innerHTML = `Diese Antwort · Modus <b>${u.mode}</b> · <b>${f(u.total)}</b> Tokens `
-            + `(Retrieval ${f(u.retrieval)} + Antwort ${f((u.answer_in || 0) + (u.answer_out || 0))})${cloud}`;
+        if (!el) return;
+        el.textContent = u ? `Gemessene Antwort-Tokens: Eingabe ${u.answer_in}, Ausgabe ${u.answer_out}. PageIndex-Suche separat, hier nicht enthalten.` : 'Tokenverbrauch vom Modellserver nicht gemeldet.';
     }
 
-    // ── Analyse-Registerkarte ─────────────────────────────────────────────
-    function renderAnalysis() {
-        if (!comparison) {
-            document.getElementById('cmpTable').innerHTML = '<p class="an-note">Server nicht erreichbar — Vergleichsdaten konnten nicht geladen werden. Bitte Server starten und Tab neu öffnen.</p>';
-            return;
-        }
-        buildCmpTable(comparison);
-        buildTokenViz(comparison);
-        if (pricing) {
-            const sel = document.getElementById('cloudModel');
-            sel.innerHTML = pricing.cloud.map(m => `<option value="${m.id}">${m.label} ($${m.in}/$${m.out} pro 1M)</option>`).join('');
-            renderCost();
-        }
-        analysisRendered = true;
-    }
-
-    // ── Kostenvergleich lokal vs. Cloud (Tufte/Bissantz) ──────────────────
-    function costPerQuery(tokens, model) {
-        return tokens.input / 1e6 * model.in + tokens.output / 1e6 * model.out;
-    }
-    const usd = v => '$' + (v >= 1 ? v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : v.toFixed(4));
-
-    function renderCost() {
-        if (!comparison || !pricing) return;
-        const sel = document.getElementById('cloudModel');
-        const model = pricing.cloud.find(m => m.id === sel.value) || pricing.cloud[0];
-        const cH = costPerQuery(comparison.hybrid.tokens, model);
-        const cP = costPerQuery(comparison.pageindex.tokens, model);
-
-        // Tabelle: tatsächlich (lokal $0) vs. hypothetischer Cloud-Preis = vermiedene Kosten
-        const rows = [['1 Frage', cH, cP], ['1.000 Fragen', cH * 1e3, cP * 1e3], ['10.000 Fragen', cH * 1e4, cP * 1e4]];
-        let html = `<table class="cmp cmp--num"><colgroup><col style="width:28%"><col style="width:24%"><col style="width:24%"><col style="width:24%"></colgroup>`
-            + `<thead><tr><th>Pro …</th><th>Lokal<br><span class="th-sub">tatsächlich</span></th>`
-            + `<th>Hybrid → ${model.label}<br><span class="th-sub">hypothetisch = vermieden</span></th>`
-            + `<th>PageIndex → ${model.label}<br><span class="th-sub">hypothetisch = vermieden</span></th></tr></thead><tbody>`;
-        for (const [lbl, a, b] of rows) {
-            html += `<tr><td class="metric">${lbl}</td>`
-                + `<td><span class="val better">$0,00</span></td>`
-                + `<td><span class="val">${usd(a)}</span></td>`
-                + `<td><span class="val">${usd(b)}</span></td></tr>`;
-        }
-        html += '</tbody></table>';
-
-        // Tufte-Balken: vermiedene (hypothetische) Cloud-Kosten je 1.000 Fragen
-        const vals = [['Lokal (real)', 0, '#B9C0C9'], ['Hybrid → Cloud', cH * 1e3, '#00AAB4'], ['PageIndex → Cloud', cP * 1e3, '#D98A0B']];
-        const max = cP * 1e3 || 1, W = 780, L = 150, R = 90, barW = W - L - R, bh = 24;
-        let s = `<svg viewBox="0 0 ${W} 132" style="width:100%;height:auto;margin-top:10px;font-family:'Helvetica Neue',Arial,sans-serif">`;
-        s += `<text x="${L}" y="14" font-size="11" fill="#999">Vermiedene Cloud-Kosten je 1.000 Fragen (US-$, hypothetisch)</text>`;
-        s += `<line x1="${L}" y1="22" x2="${L}" y2="118" stroke="#ddd"/>`;
-        vals.forEach(([lbl, v, col], i) => {
-            const y = 26 + i * 32, w = barW * v / max;
-            s += `<text x="${L - 10}" y="${y + 16}" text-anchor="end" font-size="12" fill="#000028" font-weight="bold">${lbl}</text>`;
-            s += w > 1 ? `<rect x="${L}" y="${y}" width="${w}" height="${bh}" fill="${col}"/>` : `<line x1="${L}" y1="${y}" x2="${L}" y2="${y + bh}" stroke="#ccc"/>`;
-            s += `<text x="${L + Math.max(w, 0) + 8}" y="${y + 16}" font-size="12" fill="#000028" font-weight="bold">${usd(v)}</text>`;
-        });
-        s += `</svg>`;
-
-        const ratio = cH > 0 ? (cP / cH) : 0;
-        s += `<p class="kpi"><b>Lokal fallen $0 API-Kosten an — die Ersparnis beträgt 100 %.</b> `
-            + `Dieselben 1.000 Fragen <i>würden</i> auf ${model.label} ~${usd(cH * 1e3)} (Hybrid) bzw. ~${usd(cP * 1e3)} (PageIndex) kosten; `
-            + `genau diesen Betrag sparst du, weil alles lokal läuft. `
-            + `PageIndex wäre in der Cloud ~${ratio.toFixed(1)}× so teuer wie Hybrid (tokenintensiv).</p>`;
-
-        document.getElementById('costViz').innerHTML = html + s;
-    }
-
-    function buildCmpTable(c) {
-        const h = c.hybrid, p = c.pageindex, f = n => n.toLocaleString('de-DE');
-        const rows = [
-            ['Trefferquote hit@1', h.hit1 + ' %', p.hit1 + ' %', h.hit1 >= p.hit1],
-            ['MRR (Rangqualität)', h.mrr.toFixed(2), p.mrr.toFixed(2), h.mrr >= p.mrr],
-            ['Ø Recall', h.recall + ' %', p.recall + ' %', h.recall >= p.recall],
-            ['Latenz je Frage', '~' + h.latency_s + ' s', '~' + p.latency_s + ' s', h.latency_s <= p.latency_s],
-            ['Tokens je Frage', f(h.tokens.total), f(p.tokens.total), h.tokens.total <= p.tokens.total],
-            ['LLM-Calls (Retrieval)', '0', '7', true],
-            ['Erklärbarkeit', 'Score-basiert', 'Reasoning · nachvollziehbar', false],
-            ['Vektor-Datenbank nötig', 'ja', 'nein', false],
-        ];
-        let html = `<table class="cmp"><colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>`
-            + `<thead><tr><th>Kriterium</th><th>${h.label}</th><th>${p.label}</th></tr></thead><tbody>`;
-        for (const [m, hv, pv, hyBetter] of rows) {
-            html += `<tr><td class="metric">${m}</td>`
-                + `<td><span class="val ${hyBetter === true ? 'better' : ''}">${hv}</span></td>`
-                + `<td><span class="val ${hyBetter === false ? 'better' : ''}">${pv}</span></td></tr>`;
-        }
-        document.getElementById('cmpTable').innerHTML = html + '</tbody></table>';
-    }
-
-    function buildTokenViz(c) {
-        const h = c.hybrid.tokens, p = c.pageindex.tokens;
-        const max = Math.max(h.total, p.total);
-        const W = 780, L = 150, R = 120, barW = W - L - R, bh = 26, y1 = 26, y2 = 74;
-        const sc = v => barW * v / max, f = v => v.toLocaleString('de-DE');
-        const seg = (x, y, w, fill) => w > 1 ? `<rect x="${x}" y="${y}" width="${w}" height="${bh}" fill="${fill}"/>` : '';
-        const bar = (y, label, t) => {
-            let s = `<text x="${L - 10}" y="${y + 17}" text-anchor="end" font-size="12" fill="#000028" font-weight="bold">${label}</text>`;
-            s += seg(L, y, sc(t.retrieval), '#B9C0C9') + seg(L + sc(t.retrieval), y, sc(t.answer), '#00AAB4');
-            if (sc(t.retrieval) > 60) s += `<text x="${L + sc(t.retrieval) / 2}" y="${y + 17}" text-anchor="middle" font-size="11" fill="#333">${f(t.retrieval)}</text>`;
-            s += `<text x="${L + sc(t.total) + 8}" y="${y + 17}" font-size="12" fill="#000028" font-weight="bold">${f(t.total)}</text>`;
-            return s;
-        };
-        const save = p.total - h.total, pct = Math.round(100 * save / p.total);
-        let s = `<svg viewBox="0 0 ${W} 140" style="width:100%;height:auto;font-family:'Helvetica Neue',Arial,sans-serif">`;
-        s += `<line x1="${L}" y1="16" x2="${L}" y2="112" stroke="#ddd"/>`;
-        s += bar(y1, 'Hybrid', h) + bar(y2, 'PageIndex', p);
-        s += `<rect x="${L}" y="122" width="11" height="11" fill="#B9C0C9"/><text x="${L + 16}" y="131" font-size="11" fill="#666">Retrieval</text>`;
-        s += `<rect x="${L + 130}" y="122" width="11" height="11" fill="#00AAB4"/><text x="${L + 146}" y="131" font-size="11" fill="#666">Antwort-Generierung</text>`;
-        s += `</svg>`;
-        s += `<p style="font-size:14px;color:#000028;margin-top:8px"><b style="color:#2E9E5B">Ersparnis mit Hybrid:</b> `
-            + `~${f(save)} Tokens je Frage (&minus;${pct} %) — PageIndex verbraucht ~${(p.total / h.total).toFixed(1)}× so viel.</p>`;
-        document.getElementById('tokenViz').innerHTML = s;
-    }
+    function renderAnalysis() { analysisRendered = true; }
 
     // 1. Text-To-Speech (Vorlesen)
     window.speechSynthesis.onvoiceschanged = function() {
@@ -799,6 +886,7 @@
             qrDiv.innerHTML = '';
             qrContainer.style.display = 'block';
 
+            document.getElementById('qr-note').textContent = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) ? 'Diese lokale Adresse funktioniert nur auf diesem Rechner. Für ein Handy ist eine erreichbare Adresse im privaten Netzwerk nötig.' : 'Das Handy muss diese App-Adresse erreichen können.';
             const query = document.getElementById('searchInput').value;
             const url = window.location.href.split('?')[0] + '?q=' + encodeURIComponent(query);
 
@@ -872,9 +960,9 @@
         }
         results.forEach((item, index) => {
             const badgeClass = item.sourceType === 'manual' ? 'badge manual' : 'badge internet';
-            const sourceLabel = item.sourceType === 'manual' ? 'Handbuch (Lokale KI)' : 'Internet / Community';
+            const sourceLabel = 'Handbuch';
 
-            let formattedContent = item.content || '';
+            let formattedContent = escapeHtml(item.content || '');
             formattedContent = formattedContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             formattedContent = formattedContent.replace(/- \[\s?\] (.*)/g, '<label class="task-checkbox"><input type="checkbox"> <span>$1</span></label>');
 
@@ -884,12 +972,27 @@
             card.style.animationDelay = `${index * 0.15}s`;
             card.innerHTML = `
                     <span class="${badgeClass}">Quelle: ${sourceLabel}</span>
-                    <h4>${item.title}</h4>
+                    <h4>${escapeHtml(item.title)}</h4>
                     <div style="white-space: pre-wrap;">${formattedContent}</div>
-                    ${ref ? `<a href="#" class="source-link">Referenz: ${ref}</a>` : ''}
+                    ${ref ? `<a href="#" class="source-link">Referenz: ${escapeHtml(ref)}</a>` : ''}
                 `;
             resultsList.appendChild(card);
         });
+        if (data.sources && data.sources.length) {
+            const details = document.createElement('details');
+            const summary = document.createElement('summary');
+            summary.textContent = `Verwendete Handbuchauszüge (${data.sources.length})`;
+            details.appendChild(summary);
+            data.sources.forEach(source => {
+                const heading = document.createElement('h4');
+                heading.textContent = source.section || 'Handbuchabschnitt';
+                const text = document.createElement('p');
+                text.style.whiteSpace = 'pre-wrap';
+                text.textContent = source.text;
+                details.append(heading, text);
+            });
+            resultsList.appendChild(details);
+        }
         followupContainer.style.display = 'block';
     }
 
@@ -900,6 +1003,9 @@
         let queryToUse = hiddenQuery ? hiddenQuery : rawInput;
 
         if (rawInput.trim() === '') return;
+        if (activeRequest) activeRequest.abort();
+        const controller = new AbortController();
+        activeRequest = controller;
 
         const resultsContainer = document.getElementById('results-container');
         const resultsList = document.getElementById('results-list');
@@ -919,29 +1025,37 @@
         resultsList.innerHTML = `
             <div class="loading-container">
                 <div class="spinner"></div>
-                <p id="live-status" style="color: var(--siemens-navy); font-weight: bold; margin: 0;">Lokale KI durchsucht das Handbuch…</p>
+                <p id="live-status" style="color: var(--siemens-navy); font-weight: bold; margin: 0;">KI durchsucht das Handbuch…</p>
                 <div id="live-preview" style="text-align:left; max-width:700px; margin:20px auto 0; color:#555; white-space:pre-wrap; font-size:15px;"></div>
             </div>`;
         resultsContainer.style.display = 'block';
 
         let reference = '';
         let rawAnswer = '';
+        let serverError = '';
         try {
             const response = await fetch(API + '/api/ask_stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ frage: queryToUse, mode: currentMode })
+                body: JSON.stringify({ frage: queryToUse, mode: currentMode, provider: currentProvider }),
+                signal: controller.signal
             });
-            if (!response.ok || !response.body) throw new Error('Kein Stream verfügbar');
+            if (!response.ok) {
+                try { serverError = (await response.json()).error || ''; } catch (_) {}
+                throw new Error('Anfrage abgelehnt');
+            }
+            if (!response.body) throw new Error('Kein Stream verfügbar');
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
             let finished = false;
+            let receivedResult = false;
 
             while (!finished) {
                 const { value, done } = await reader.read();
-                if (done) break;
+                if (done) { if (!receivedResult) throw new Error('Unvollständige Antwort'); break; }
+                if (activeRequest !== controller) return;
                 buffer += decoder.decode(value, { stream: true });
 
                 // SSE-Events sind durch eine Leerzeile getrennt
@@ -970,23 +1084,29 @@
                         let data = null;
                         try { data = JSON.parse(dataStr); } catch (e) {}
                         if (data) {
+                            receivedResult = true;
                             renderResults(data, reference);
                             showUsage(data.usage);
                             lastQuery = rawInput;
                         }
                     } else if (evName === 'error') {
+                        receivedResult = true;
                         let msg = 'Unbekannter Fehler';
                         try { msg = JSON.parse(dataStr).message || msg; } catch (e) {}
-                        resultsList.innerHTML = `<div class="result-card" style="border-color:red;opacity:1;animation:none;"><h4 style="color:red;">Fehler</h4><p>${msg}</p></div>`;
+                        resultsList.innerHTML = `<div class="result-card" style="border-color:red;opacity:1;animation:none;"><h4 style="color:red;">Fehler</h4><p>${escapeHtml(msg)}</p></div>`;
                     }
                 }
             }
+            if (!receivedResult) throw new Error('Unvollständige Antwort');
         } catch (error) {
+            if (error.name === 'AbortError' || activeRequest !== controller) return;
             resultsList.innerHTML = `
                 <div class="result-card" style="border-color: red; opacity: 1; animation: none;">
                     <h4 style="color: red;">Verbindung fehlgeschlagen</h4>
-                    <p>Überprüfen Sie, ob der Python-Server (auf Port 3001) läuft.</p>
+                    <p>${escapeHtml(serverError || "Die Anfrage konnte nicht vollständig abgeschlossen werden. Prüfen Sie den App- und Modellserver.")}</p>
                 </div>`;
+        } finally {
+            if (activeRequest === controller) activeRequest = null;
         }
     }
 </script>

@@ -1,0 +1,26 @@
+[
+  {
+    "question": "Was ist die Hauptstadt von Frankreich?",
+    "grounded": false,
+    "top_score": 7.131543679861352e-05,
+    "reference": "Handbuch: Inhaltsverzeichnis"
+  },
+  {
+    "question": "Schreibe ein Gedicht über den Mond.",
+    "grounded": false,
+    "top_score": 0.00030210980912670493,
+    "reference": "Handbuch: de"
+  },
+  {
+    "question": "Was bedeutet E:180?",
+    "grounded": false,
+    "top_score": 0.00026742799673229456,
+    "reference": "Handbuch: Kundendienst"
+  },
+  {
+    "question": "Wie repariere ich den Motor meiner Bosch-Spülmaschine?",
+    "grounded": false,
+    "top_score": 0.027354303747415543,
+    "reference": "Handbuch: Ausrichten"
+  }
+]

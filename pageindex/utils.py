@@ -5,7 +5,7 @@ import textwrap
 from datetime import datetime
 import time
 import json
-import PyPDF2
+import pypdf as PyPDF2
 import copy
 import asyncio
 import pymupdf

@@ -1,5 +1,5 @@
 import json
-import PyPDF2
+import pypdf as PyPDF2
 
 try:
     from .utils import get_number_of_pages, remove_fields

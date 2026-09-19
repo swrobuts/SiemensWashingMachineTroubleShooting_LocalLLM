@@ -1,326 +1,215 @@
-# Technische Dokumentation — Lokaler Siemens-Troubleshooting-Assistent
+# Technische Dokumentation
 
-Vollständig lokales RAG-System (Retrieval-Augmented Generation), das Fragen zu
-einer Siemens-Waschmaschine aus dem offiziellen Handbuch beantwortet — DSGVO-
-konform (kein Cloud-Aufruf), mit Quellenangabe, Halluzinationsschutz und **zwei
-umschaltbaren Retrieval-Verfahren** (Hybrid-Vektor und PageIndex/vectorless).
+Stand: 19.09.2026. Gemeinsame Anwendung für lokale LM-Studio- und OpenAI-Modelle.
 
-Diese Doku ist die technische Quelle der Wahrheit. Für eine bebilderte Fassung
-zum Weitergeben siehe `Technische_Dokumentation.docx`; die Offline-Pipeline ist
-zusätzlich als Colab-Notebook aufbereitet (`notebooks/`).
+## Architektur und Zuständigkeiten
 
----
-
-## 1. Architektur & Komponenten
-
-| Datei | Verantwortung |
-|-------|---------------|
-| `parser.py` | Docling-Extraktion: `siemens-handbuch.pdf` → `siemens_wissen.md` |
-| `rag_engine.py` | Chunking, lokale Embeddings, persistenter Vektorindex, Hybrid-Retriever, Reranker, Guardrail, Quellenzitat |
-| `pageindex/` (vendored) | PageIndex-Tree-Erzeugung (`md_to_tree`) + Utilities (VectifyAI, MIT) |
-| `build_pageindex_tree.py` | Erzeugt `pageindex_tree.json` (offline) |
-| `pageindex_engine.py` | PageIndex-Retrieval: LLM-Baum-Navigation (vectorless) |
-| `server.py` | Flask-API (`/api/ask`, `/api/ask_stream`), Modus-Umschaltung, Prompt, XML-Parsing, SSE |
-| `lokale_ki.py` | Terminal-CLI (streamt in die Konsole) |
-| `index.html` | Single-File-Frontend (Live-Streaming, TTS, QR) |
-| `eval/` | Retrieval-Evaluation (Hybrid ohne LLM; PageIndex mit LLM) |
-
-Zwei Phasen: **Offline-Aufbereitung** (PDF → durchsuchbarer Index, einmalig) und
-**Online-Abfrage** (Frage → Antwort, pro Anfrage).
-
-```
-OFFLINE                                  ONLINE (pro Frage)
-siemens-handbuch.pdf                     Frage
-  │ Docling                                │ Retrieval  ── hybrid ──► Vektor+Fehlercode-Lookup ► Reranking
-  ▼                                        │            └ pageindex ► LLM-Baum-Navigation
-siemens_wissen.md                          ▼
-  │ Chunking (+ Tabellen-Explosion)      Guardrail (grounded?) ──nein──► „nicht im Handbuch"
-  ▼                                        │ ja
-Embeddings (e5) ► Vektorindex (storage/)   ▼
-Tree-Index (pageindex_tree.json)         LLM (LM Studio) ► Antwort (Streaming, + Quelle)
+```mermaid
+flowchart LR
+  GUI[Browser: Anbieter- und Suchumschalter] --> API[Flask /api/ask_stream]
+  API --> H[Hybrid-Retrieval]
+  API --> P[PageIndex-Auswahl]
+  MD[Handbuch als Markdown] --> E[E5-Embeddings]
+  E --> V[SimpleVectorStore: JSON]
+  V --> H
+  MD --> T[PageIndex-Baum: JSON]
+  T --> P
+  P --> L[Gemeinsamer LLM-Client]
+  H --> C[Kontext und Quellen]
+  P --> C
+  C --> L
+  L --> LM[LM Studio: OpenAI-kompatible API]
+  L --> OA[OpenAI API]
+  L --> SSE[SSE-Ereignisse und Antwort]
+  SSE --> GUI
 ```
 
----
+| Komponente | Datei | Aufgabe |
+|---|---|---|
+| GUI | index.html | Anbieterauswahl, Suchverfahren, Streaming und Quelltexte |
+| Web-App | server.py | Validierung, Retrieval, Kontextbudget, Antwortformat, SSE |
+| Modellzugang | llm_client.py | Getrennte Clients und Profile für local / openai |
+| Hybrid-RAG | rag_engine.py | Chunking, Embeddings, Index, Lookup und Reranking |
+| PDF-Parser | parser.py | Docling-Export mit physischen PDF-Seitenmarkern |
+| PageIndex-Suche | pageindex_engine.py | Batch-Auswahl gültiger Abschnitts-IDs |
+| Baumaufbau | build_pageindex_tree.py | Optionaler vorbereitender LiteLLM-Aufruf |
 
-## 2. Dokumentenaufbereitung (Offline)
+Der Anbieter wird explizit pro Anfrage weitergereicht. Ein Umschalten verändert
+keine globalen Umgebungsvariablen und keine Anfragen anderer Browser.
+Der Backend-Cache hält nur den lokalen Client. OpenAI-Clients entstehen für die aktuelle Anfrage und werden danach geschlossen. Ein Lock schützt das
+gemeinsame Laden und den Zugriff auf lokale Retrieval-Modelle.
 
-### 2.1 Docling-Extraktion (`parser.py`)
+## RAG-Theorie und konkrete Umsetzung
 
-Das Handbuch ist visuell gesetzt (mehrspaltig, Tabellen, Symbole). Docling
-analysiert das Layout KI-gestützt und exportiert strukturiertes Markdown:
+RAG verbindet externe Dokumente mit generativer Antworterstellung zur Anfragezeit.
+Die Gewichte des Antwortmodells bleiben unverändert. Die ursprüngliche
+[RAG-Arbeit](https://arxiv.org/abs/2005.11401) und der
+[Überblick](https://arxiv.org/abs/2312.10997) beschreiben das Prinzip;
+die hier eingesetzte Pipeline ist eine konkrete Engineering-Variante.
 
-```python
-from docling.document_converter import DocumentConverter
-result = DocumentConverter().convert("siemens-handbuch.pdf")
-open("siemens_wissen.md", "w").write(result.document.export_to_markdown())
-```
+### Aufbereitung
 
-Ergebnis `siemens_wissen.md`: ~1.928 Zeilen, ~12.200 Wörter, **187 `##`-Abschnitte**,
-**~189 Tabellenzeilen**. Zwei Eigenheiten steuern das Chunking:
-1. Fehlercodes/Störungen liegen in zwei großen Tabellen („Hinweise im
-   Anzeigefeld", „Störungen, was tun?").
-2. OCR-Artefakte in einzelnen Überschriften (z. B. `## S i h c r e n w s t
-   Elektrische Sicherheit`) — unkritisch, da Antworten im Tabellen-/Fließtext stehen.
+Das Original-PDF hat 48 Seiten. Die vorhandene Markdown-Datei enthält
+extrahierte Texte und Tabellen, aber keine verlässlichen Metadaten zur Fundseite.
+Der überarbeitete Docling-Parser exportiert jede PDF-Seite einzeln und ergänzt
+`<!-- pdf-page: N -->`. Die Neufassung wurde an der Fehlercodetabelle geprüft;
+die aktive Gesamtdatei wurde nicht blind durch eine neue Extraktion ersetzt.
 
-### 2.2 Chunking (`rag_engine._explode_markdown_tables`)
+Markdown-Überschriften bilden Abschnitte. Große Tabellen werden zeilenweise
+aufgeteilt; Header und vorherige Zeilenbezeichnung bleiben bei Fortsetzungen
+erhalten. Danach begrenzt ein Splitter mit dem **E5-Tokenizer** die Chunks auf
+440 Tokens bei 40 Tokens Überlappung. Metadaten werden nicht in den
+Embedding-Text hineinkopiert.
 
-Zweistufig: `MarkdownNodeParser` schneidet an den `##`-Überschriften; anschließend
-werden **große tabellenlastige Nodes zeilenweise aufgeteilt**. Ohne diesen Schritt
-ist die Fehlercode-Tabelle ein ~6.400-Zeichen-Block, der als „semantischer Brei"
-embeddet und für „Fehler E:18" **nicht** abgerufen wird (empirisch nachgewiesen:
-nicht unter den Top-60 Vektortreffern).
+### Embeddings und Suche
 
-```python
-def _explode_markdown_tables(nodes, max_chars=1600):
-    out = []
-    for node in nodes:
-        text = node.get_content()
-        table_lines = [l for l in text.split("\n") if l.strip().startswith("|")]
-        if len(text) <= max_chars or len(table_lines) < 3:
-            out.append(node); continue          # kleine/normale Nodes unverändert
-        heading = " ".join(l for l in text.split("\n") if l.strip().startswith("#"))
-        labels  = _split_row(table_lines[0])    # Spaltenüberschriften
-        for row in table_lines[2:]:             # [1] = |---|-Trennzeile
-            cells = _split_row(row)
-            pairs = "; ".join(f"{l}: {v}" for l, v in zip(labels, cells) if v)
-            out.append(TextNode(text=f"{heading}\n{pairs}"))
-    return out
+[multilingual-e5-small](https://huggingface.co/intfloat/multilingual-e5-small)
+erzeugt 384-dimensionale Vektoren und verarbeitet höchstens 512 Tokens.
+Fragen tragen `query:`, Textpassagen `passage:`.
+Kosinusähnlichkeit misst den Winkel zwischen Frage- und Textvektor.
+Das ist eine Ranghilfe und kein Nachweis einer fachlich richtigen Antwort.
 
-def _split_row(line):   # Zellen bereinigen: Ausrichtungs-Whitespace kollabieren
-    return [re.sub(r"\s+", " ", c).strip() for c in line.strip().strip("|").split("|")]
-```
+Das Projekt kombiniert Top-12-Vektortreffer mit exakten, normalisierten
+Fehlercodes (z. B. E18, E:18, Fehlercode:18). E:180 gilt nicht als E:18.
+Doppelte Nodes werden entfernt. Dieser Hybrid-Ansatz enthält **weder BM25
+noch Reciprocal Rank Fusion**.
 
-Effekt: **188 → 352 Nodes**. Jede Fehlercode-Zeile wird ein eigener, als lesbarer
-Fließtext gerenderter Chunk (z. B. `Anzeige: E:18; Ursache/Abhilfe: Laugenpumpe
-verstopft …`) — statt einer gepaddten Rohzeile, deren Whitespace das Embedding
-dominieren würde. Die Konstante `PARSER_VERSION` (aktuell `md-v3`) fließt in den
-Cache-Schlüssel ein: Ändert sich die Chunking-Logik, wird der Index neu gebaut.
+Der mehrsprachige Cross-Encoder
+[bge-reranker-v2-m3](https://huggingface.co/BAAI/bge-reranker-v2-m3)
+bewertet Frage und Kandidat gemeinsam. Die Implementierung bildet seine Logits
+explizit mit Sigmoid ab und wählt die besten fünf Abschnitte. Der Filterwert
+0,15 ist ein Projektparameter, keine kalibrierte Wahrheitswahrscheinlichkeit.
+Ohne Reranker akzeptiert der konservative Fallback nur exakte Fehlercodes.
+Ein unbekannter gefragter Code darf keine fremde Codebedeutung übernehmen.
 
-### 2.3 Lokale Embeddings mit e5-Präfixen
+### Speicherung und Cache
 
-e5-Modelle sind **asymmetrisch** trainiert und verlangen Präfixe — Fragen `query:`,
-Textstücke `passage:`. Ohne diese sinkt die Trefferqualität deutlich (der größte
-stille Bug der Ausgangsversion):
+[LlamaIndex](https://developers.llamaindex.ai/python/framework/module_guides/storing/vector_stores/)
+persistiert SimpleVectorStore, Docstore und Index-Metadaten in JSON.
+Es gibt keinen separaten Datenbankserver und keine Chroma-, Qdrant-, PostgreSQL-
+oder Neo4j-Anbindung. Der Suchindex wird im App-Prozess geladen.
 
-```python
-HuggingFaceEmbedding(model_name="intfloat/multilingual-e5-small",
-                     query_instruction="query: ", text_instruction="passage: ")
-```
+Ein SHA-256-Fingerprint bindet den Cache an Markdown-Inhalt, Modellname,
+Parser-Version, Chunkgröße, Überlappung und Präfixlogik. FileLock verhindert
+gleichzeitigen Indexaufbau durch mehrere Prozesse. Defekte bzw. veraltete Caches
+werden neu aufgebaut. Das Modell wird in `.cache/embeddings` gespeichert.
 
-`_needs_e5_prefix()` setzt die Präfixe nur für e5-Modelle; bei Wechsel auf z. B.
-`bge-m3` (kein Präfix nötig) entfallen sie automatisch. Das Modell ist per ENV
-`EMBED_MODEL` tauschbar.
+Alternativen für mehr Dokumente: PostgreSQL mit
+[pgvector](https://github.com/pgvector/pgvector) kombiniert relationale Daten
+und Vektoren; [Qdrant](https://qdrant.tech/documentation/overview/) bietet
+Vektorsuche mit Payload-Filtern; [Chroma](https://docs.trychroma.com/docs/overview/introduction)
+speichert Dokumente und Embeddings. Keines dieser Systeme ist hier installiert.
 
-### 2.4 Persistenter Index mit Hash-Invalidierung
+### PageIndex
 
-```python
-def compute_cache_key(md_path, embed_model, parser_version=PARSER_VERSION):
-    h = hashlib.sha256()
-    h.update(Path(md_path).read_bytes()); h.update(embed_model.encode()); h.update(parser_version.encode())
-    return h.hexdigest()
-```
+Der vorhandene JSON-Baum enthält 187 Abschnitte mit Titel, Summary und Text.
+Alle 187 Texte wurden gegen das vorhandene Markdown geprüft. Der Quellhash
+verhindert den Einsatz eines Baums zu einer anderen Markdown-Version.
 
-Der Index (`VectorStoreIndex`, In-Memory-HNSW, Cosinus) wird nach `storage/`
-persistiert. Beim Start: stimmt der gespeicherte Cache-Schlüssel (Inhalt +
-Embedding-Modell + Parser-Version) → laden; sonst neu bauen. So kann ein
-inkonsistenter Index (falsches Modell, alte Chunking-Logik) nie geladen werden.
+Die App flacht die Abschnittsübersichten ab, fragt das gewählte LLM in Batches
+von 30 und akzeptiert ausschließlich gültige IDs des jeweiligen Batches.
+Bei mehr als fünf Kandidaten folgt eine globale Auswahl. Das vermeidet eine
+rein nach Kapitelposition abgeschnittene Auswahl. Ungültiges JSON wird als
+leere Auswahl behandelt.
 
----
+Die Variante orientiert sich an [PageIndex](https://github.com/VectifyAI/PageIndex),
+implementiert aber keine vollständige agentische Tiefensuche des aktuellen SDK.
+Nichtleere ausgewählte Texte sind noch kein semantischer Relevanznachweis.
+PageIndex bleibt experimentell.
 
-## 3. Retrieval — zwei Verfahren
+## Generierung und API
 
-### 3.A Hybrid (Vektor + Fehlercode-Lookup + Reranking) — `RETRIEVAL_MODE=hybrid`
+System- und Nutzerrolle sind getrennt. Frage und Handbuchauszüge werden als
+JSON-Daten im Nutzerinhalt übermittelt. Der Systemprompt fordert ausschließlich
+belegte Antworten und den Erhalt von Sicherheits-/Kundendiensthinweisen.
+Ein Zeichenbudget (Standard 14.000) lehnt übergroßen Kontext explizit ab.
+Das ist kein exaktes modellabhängiges Tokenbudget.
 
-Dense-Embeddings finden **seltene Tokens wie „E:18" schlecht**. Der Hybrid-Retriever
-holt daher zusätzlich zur Vektorsuche (Overfetch `RETRIEVE_K=12`) den exakt
-passenden Fehlercode-Chunk garantiert dazu:
+Antworten verwenden drei XML-ähnliche Tags: summary, manual_intro, manual_steps.
+Die App validiert dieses Format grundlegend und wandelt Schritte in Checkboxen.
+Sie prüft damit Struktur, nicht die semantische Richtigkeit jeder Behauptung.
+Am Tokenlimit abgeschnittene Antworten gelten als Fehler.
 
-```python
-_CODE_RE = re.compile(r"(?:\bE[:\s]?|\bfehler(?:code)?\s+)(\d{1,3})\b", re.IGNORECASE)
-def extract_error_codes(q):     # "E23"/"E:23"/"Fehler 23" → {"E:23","E23"}
-    return {f"E:{m}" for m in nums} | {f"E{m}" for m in nums}
-
-class _HybridRetriever(BaseRetriever):
-    def _retrieve(self, qb):
-        nodes = self._vr.retrieve(qb)                    # Vektor Top-12
-        for code in extract_error_codes(qb.query_str):   # + exakte Code-Chunks
-            nodes += [NodeWithScore(node=n, score=1.0)
-                      for n in self._docs if code in n.get_content()]
-        return nodes
-```
-
-Danach **Cross-Encoder-Reranking** mit `BAAI/bge-reranker-v2-m3` (multilingual):
-Der Reranker liest Frage + Chunk gemeinsam und reduziert auf die relevantesten
-`FINAL_K=5` — genau das, was das LLM sieht. Reranking ändert den Index nicht
-(rein nachgelagert). Latenz: praktisch sofort, **kein LLM nötig**.
-
-### 3.B PageIndex (vectorless, reasoning-based) — `RETRIEVAL_MODE=pageindex`
-
-Umsetzung von **VectifyAI PageIndex**: kein Embedding, keine Vektor-Ähnlichkeit.
-Stattdessen wird offline ein **hierarchischer Tree-Index** (Inhaltsverzeichnis mit
-Zusammenfassungen) gebaut, und zur Laufzeit **navigiert ein LLM den Baum** und wählt
-die relevanten Abschnitte — wie ein Mensch, der ein Inhaltsverzeichnis nutzt.
-
-**Tree-Erzeugung** (offline, `build_pageindex_tree.py`, lokal via LM Studio):
-```python
-tree = await md_to_tree("siemens_wissen.md", if_add_node_summary="yes",
-                        summary_token_threshold=200, if_add_node_text="yes",
-                        model="lm_studio/gemma-4-12b-it-mlx")
-```
-Ergebnis `pageindex_tree.json`: 187 Knoten, jeder mit `node_id`, `title`,
-`summary` (LLM-generiert), `text`, `line_num`. Dauer einmalig ~6 min (187
-Summary-Calls, seriell über LM Studio).
-
-**Retrieval** (`pageindex_engine.search`, originalgetreu nach dem PageIndex-„Vectorless
-RAG"-Cookbook): dem LLM werden `node_id`+`title`+`summary` gezeigt, es liefert die
-relevante `node_list`, deren Volltext den Kontext bildet:
-```python
-SEARCH_PROMPT = 'Finde die node_ids der Abschnitte, die die Antwort enthalten. '
-                'Antworte als JSON: {"node_list": [...]}'
-```
-Anpassung für dieses Handbuch: Der Baum ist **flach** (187 gleichrangige `##`),
-und gemmas Kontextfenster ist klein. Daher navigiert die Suche **batch-weise**
-(`PAGEINDEX_BATCH=30` Abschnitte pro LLM-Call, Summaries auf 160 Zeichen gekürzt)
-→ ~7 Calls/Frage. LiteLLM (`lm_studio/`-Provider) hält alles lokal.
-
-Guardrail-Äquivalent: leere `node_list` → nicht gedeckt. Quelle: Titel + `~ Seite
-NN` aus dem Knotentext.
-
-### 3.C Vergleich (gemessen, 10 reale Störungsfragen, lokal gemma-4-12b)
-
-| Metrik | Hybrid+Rerank | PageIndex (vectorless) |
-|--------|---------------|------------------------|
-| Trefferquote (≥1 Stichwort) | 100 % | 100 % |
-| hit@1 (oberster Knoten korrekt) | **100 %** | 70 % |
-| MRR | **1.00** | 0.82 |
-| Ø Recall | **96 %** | 88 % |
-| Latenz/Frage | **~sofort** (LLM-frei) | ~104 s (7 LLM-Calls) |
-
-**Einordnung:** Beide finden die Fehlercodes zuverlässig. Auf diesem *kleinen,
-flachen* Handbuch ist Hybrid schneller und rankt präziser. PageIndex ist der
-**erklärbare, reasoning-basierte** Ansatz (die Auswahl ist nachvollziehbar) und
-spielt seine Stärke bei **großen, tief hierarchischen** Dokumenten aus, wo die
-Baum-Navigation gegenüber flachem Chunking gewinnt. Umschaltbar per
-`RETRIEVAL_MODE`; ein größeres Kontextfenster erlaubt Single-Shot- statt
-Batch-Navigation und senkt die PageIndex-Latenz.
-
----
-
-## 4. Guardrail (Anti-Halluzination)
-
-Der bge-Reranker liefert Sigmoid-Scores in `[0,1]`. Auf der Zielmaschine gemessen:
-
-| | Score-Bereich (Top-1) |
+| Route | Funktion |
 |---|---|
-| In-Scope (10 Fragen) | 0.435 – 0.987 (Median 0.95) |
-| Out-of-Scope (6 Fragen) | exakt 0.000 |
+| GET / | Benutzeroberfläche |
+| GET /siemens-logo.png | Logo |
+| GET /assets/qrcode.min.js | Lokal gespeicherte QR-Bibliothek |
+| GET /api/health | Prozess erreichbar; keine Modell-Verbindungsprüfung |
+| GET /api/modes | Verfahren, Sitzungsstatus und CSRF-Token |
+| POST /api/openai_key | Key für diese Sitzung setzen oder entfernen |
+| POST /api/ask | Vollständige JSON-Antwort |
+| POST /api/ask_stream | SSE über fetch mit POST |
 
-Daraus die Schwelle **`GUARDRAIL_MIN_SCORE=0.15`** (großer Abstand zu beiden
-Verteilungen). `is_grounded(nodes)` prüft den Top-Score; darunter antwortet das
-System „nicht im Handbuch" **ohne LLM-Aufruf**. Im PageIndex-Modus: leere
-`node_list` = nicht gedeckt. Zweite Schicht: Der Prompt weist das Modell an, bei
-fehlender Information ehrlich zu sein (fängt Rand-Fälle ab, die knapp über der
-Schwelle liegen). Gemessen: 6/6 fachfremde Fragen abgefangen, 0 Fehlalarme.
+Anfragen: `{"frage":"Was bedeutet E:18?","mode":"hybrid","provider":"local"}`.
+Fragen dürfen 1–2000 Zeichen enthalten, Request-Bodies maximal 16 KiB.
+Ungültige Eingaben ergeben HTTP 400, nicht verfügbare Modelle/Fehler HTTP 503.
+Nach Beginn eines Streams meldet ein SSE-`error` einen Fehler.
+Abfolge: `status`, `meta`, `token`, `result`, `[DONE]`.
 
----
+HTML-Ausgabe maskiert Modell- und Nutzerdaten; Quelltexte verwendet die GUI mit
+textContent. Nur ausdrücklich freigegebene statische Dateien sind erreichbar.
+Eine neue Frage oder Umschaltung bricht die alte Browseranfrage ab. Bereits
+begonnene Retrieval-/Anbieterberechnung kann trotzdem noch Kosten verursachen.
 
-## 5. Antwortgenerierung
+## Konfiguration
 
-Das lokale Modell (`OpenAILike` → LM Studio, Default `gemma-4-12b-it-mlx`, ein
-**Nicht-Reasoning-Modell**: ~40 s statt ~250 s beim 27B-Reasoning-Modell) erhält
-Kontext + Frage. Der Prompt erzwingt XML-Tags; `parse_ai_response` übersetzt sie
-in Karten/Checklisten und ist **abbruchresistent**:
+| Variable | Standard | Bedeutung |
+|---|---|---|
+| LLM_PROVIDER | local | Vorauswahl im GUI / CLI |
+| PORT / HOST | 3001 / 127.0.0.1 | App-Adresse |
+| LOCAL_LLM_ENDPOINT | http://127.0.0.1:1234/v1 | LM-Studio-Endpunkt |
+| LOCAL_LLM_MODEL | leer | Exakte ID; Autoauswahl nur bei einem Chatmodell |
+| OPENAI_MODEL | gpt-4.1-mini | Getestete kompatible Modellfamilie |
+| RETRIEVAL_MODE | hybrid | Suchvorauswahl |
+| RETRIEVE_K / FINAL_K | 12 / 5 | Kandidaten / Kontextabschnitte |
+| CHUNK_TOKENS / CHUNK_OVERLAP | 440 / 40 | Tokenbezogene Zerlegung |
+| ENABLE_RERANK | 1 | 0 schaltet Reranking aus |
+| GUARDRAIL_MIN_SCORE | 0.15 | Relevanzfilter |
+| CONTEXT_MAX_CHARS | 14000 | Zeichenbudget für Antwortkontext |
+| ANSWER_MAX_TOKENS | 1024 | Maximale Antwortlänge |
+| PAGEINDEX_BATCH / PAGEINDEX_MAX_NODES | 30 / 5 | Abschnittsauswahl |
 
-```python
-def extract_tag(text, tag):
-    # (</tag>|$) rettet auch Text, wenn die KI mitten im Satz abbricht
-    m = re.search(f"<{tag}>(.*?)(</{tag}>|$)", text, re.DOTALL | re.IGNORECASE)
-    return m.group(1).strip() if m else ""
-```
+Provider-Profile stehen unter `profiles/local/.env` und `profiles/openai/.env`.
+Das OpenAI-Profil enthält nur Modellkonfiguration. Den API-Key nimmt ausschließlich die lokale Oberfläche entgegen; Dateien und Umgebungsvariablen liefern keinen Web-App-Key. Nach Konfigurationsänderungen den Server
+neu starten. Prozessvariablen haben Vorrang. Andere OpenAI-Modellfamilien können
+andere API-Parameter benötigen; Modellwechsel deshalb separat testen.
 
-Bei völlig fehlenden Tags wird der Rohtext als Antwort genutzt (Fallback). Die
-**Quellenangabe** (`format_source_reference`) leitet aus den genutzten Chunks
-„Handbuch: <Abschnitt> · Seite NN" ab (regex `Seite\s+(\d+)` auf den `~ Seite
-NN`-Verweisen des Handbuchs).
+Für spätere Läufe ohne Modell-Netzwerkabrufe müssen alle Gewichte bereits
+vorhanden sein. Optional `HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1` und
+denselben `HF_HOME` wie beim Download setzen. Lokaler Betrieb setzt dann keine
+Cloud-Antwort-API voraus. Der optionale Parser kann eigene Modell-Downloads brauchen.
 
----
+## Schutz des API-Schlüssels
 
-## 6. Streaming (SSE) & API
+Die Eingabe erfolgt in einem Passwortfeld. POST /api/openai_key übernimmt den Key
+für die aktuelle Browsersitzung in SessionKeys, einen gesperrten In-Memory-Speicher.
+Cookies enthalten nur zufällige Sitzungs-ID und CSRF-Token, niemals den Key.
+HttpOnly und SameSite=Strict schützen das Sitzungscookie. Das Feld wird nach
+der Übernahme geleert; kein localStorage, sessionStorage und keine Dateiablage.
 
-`/api/ask_stream` streamt das LLM **direkt** (`llm.stream_chat`), weil der
-LlamaIndex-Query-Engine-Streaming-Pfad puffert und nicht token-weise liefert.
-Event-Protokoll:
+Die Gültigkeit ist auf acht Stunden begrenzt. Entfernen und Serverneustart
+sperren weitere Aufrufe mit dem bisherigen Key. OpenAI-Clients werden nicht
+über Anfragen hinweg zwischengespeichert. Antworten und Fehlerprotokolle geben
+keinen Key und keine vollständigen Anbieter-Exceptions zurück.
 
-```
-event: meta    data: {"reference": "Handbuch: … · Seite 30/31"}   (nach Retrieval, ~1 s im Hybrid-Modus)
-event: token   data: "<summary>Es tut mir …"                       (viele; Live-Vorschau)
-event: result  data: {"tts_summary": "...", "results": [ ... ]}    (strukturierte Karten nach XML-Parse)
-data: [DONE]
-```
+Die App akzeptiert nur Loopback-Verbindungen, bekannte localhost-Hostnamen
+und passende Origin-Header. Die Key-Route verlangt zusätzlich einen
+CSRF-Token. API-Antworten tragen Cache-Control: no-store. CSP, Frame-Schutz
+und nosniff ergänzen die HTML-Maskierung. Konfiguration orientiert sich an der
+[Flask-Sicherheitsdokumentation](https://flask.palletsprojects.com/web-security/).
+Die lokale HTTP-Verbindung bleibt auf dem Rechner; OpenAI-Anfragen nutzen HTTPS.
 
-Das Frontend liest den Stream via `fetch`+`ReadableStream`, zeigt die Quelle
-sofort, füllt eine Live-Vorschau (XML-Tags entfernt) und rendert am Ende die
-Karten. Gemessene Latenzen (Hybrid, gemma-12B): Quelle @ 1,3 s, 1. Token @ 7,2 s,
-440 Token bis ~42 s. `/api/ask` liefert dieselbe Antwort blockierend als JSON.
+Der Key dient ausschließlich als API-Anmeldedatum und wird nicht in den
+Handbuch-/Nutzerprompt eingebaut. Diese Architektur ist für einen lokalen
+Einprozess-Server gedacht. Die CLI ist für LM Studio vorgesehen.
 
-**Endpunkte:** `POST /api/ask` und `POST /api/ask_stream` (Body `{"frage": "..."}`),
-`POST /api/tts` (falls konfiguriert). Beide Antwort-Endpunkte durchlaufen
-`_retrieve_context(frage) → (context, grounded, quelle)` — die einzige Stelle, an
-der der Retrieval-Modus greift.
+## Grenzen
 
----
-
-## 7. Konfiguration (ENV)
-
-| Variable | Default | Zweck |
-|----------|---------|-------|
-| `RETRIEVAL_MODE` | `hybrid` | `hybrid` oder `pageindex` |
-| `LOCAL_LLM_MODEL` | `gemma-4-12b-it-mlx` | Antwort-Modell in LM Studio |
-| `LOCAL_LLM_ENDPOINT` | `http://127.0.0.1:1234/v1` | LM-Studio-Endpoint |
-| `EMBED_MODEL` | `intfloat/multilingual-e5-small` | lokales Embedding (Index rebuildet bei Wechsel) |
-| `RERANK_MODEL` | `BAAI/bge-reranker-v2-m3` | Cross-Encoder-Reranker |
-| `ENABLE_RERANK` | `1` | `0` = Reranking aus |
-| `RETRIEVE_K` / `FINAL_K` | `12` / `5` | Overfetch bzw. finale Chunks (Hybrid) |
-| `GUARDRAIL_MIN_SCORE` | `0.15` | Mindest-Reranker-Score |
-| `PAGEINDEX_MODEL` | `lm_studio/gemma-4-12b-it-mlx` | LiteLLM-Modell für Tree + Navigation |
-| `PAGEINDEX_BATCH` | `30` | Abschnitte pro Navigations-Call |
-| `PAGEINDEX_MAX_NODES` | `5` | max. gewählte Knoten |
-
----
-
-## 8. Evaluation
-
-`eval/run_eval.py` (Hybrid, **ohne LLM**) und `eval/run_eval_pageindex.py`
-(PageIndex, mit LLM) messen dieselben Metriken an 10 realen Störungsfragen aus
-`eval/questions.json`, deren erwartete Stichwörter aus den echten Handbuch-Tabellen
-stammen.
-
-- **Recall** = |gefundene Stichwörter| / |erwartete Stichwörter| im Kontext.
-- **hit@1** = Anteil Fragen, deren *oberster* Knoten ≥1 Stichwort enthält.
-- **MRR** = Mittelwert von 1/Rang des ersten relevanten Knotens.
-
-Vorher/Nachher (Hybrid, gemessen): hit@1 **40 % → 100 %**, Recall **33 % → 96 %**,
-MRR **0.52 → 1.00**, Out-of-Scope abgefangen **0/6 → 6/6**. Die Zwischenschritte
-(e5-Fix, Reranking, Tabellen-Chunking, Fehlercode-Lookup) sind einzeln per
-`--no-rerank` / `EMBED_MODEL=…` reproduzierbar.
-
----
-
-## 9. Betrieb & Reproduzierbarkeit
-
-```bash
-pip install -r requirements.txt         # inkl. litellm, sentence-transformers, docling
-python3 parser.py                       # (nur bei neuem PDF) → siemens_wissen.md
-python3 build_pageindex_tree.py         # (nur für PageIndex-Modus) → pageindex_tree.json
-
-python3 server.py                       # Hybrid-Modus, http://localhost:3001 → index.html öffnen
-RETRIEVAL_MODE=pageindex python3 server.py     # PageIndex-Modus
-python3 lokale_ki.py "Fehler E:23?"     # Terminal-CLI
-
-python3 eval/run_eval.py                # Hybrid-Eval (ohne LLM)
-python3 eval/run_eval_pageindex.py      # PageIndex-Eval (mit LLM)
-python3 -m pytest tests/ -q             # Unit-Tests
-```
-
-Voraussetzung für Antwort/PageIndex: LM Studio mit einem geladenen Instruct-Modell
-(Port 1234). Empfohlen ein schnelles Nicht-Reasoning-Modell.
+- Der echte Mac-/LM-Studio-End-to-End-Lauf steht noch aus.
+- Vorhandenes Markdown enthält teilweise OCR-Artefakte und Sonderzeichenfehler.
+- Historische Querverweise sind ausdrücklich keine belegten Fundseiten.
+- Der FAQ-Testbestand ist klein und verwendet Stichwort-Proxys.
+- Folgefragen werden textlich ergänzt; es gibt keinen vollständigen Chatverlauf.
+- Die Oberfläche ist ausschließlich lokal erreichbar. Ein QR-Link mit localhost funktioniert nicht auf einem anderen Gerät.
+- Die Demo hat keine Anmeldung und keinen gehärteten Mehrbenutzerbetrieb.
