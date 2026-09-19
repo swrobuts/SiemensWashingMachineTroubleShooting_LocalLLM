@@ -137,7 +137,7 @@ die laufende App den gemeinsamen OpenAI-SDK-Client.
 ## Dokumentation
 
 - [PowerPoint-Foliensatz](docs/slides/RAG_Waschmaschine_Dokumentation.pptx):
-  weißer Stil, Theorie, technische Diagramme, Betrieb und Prüfresultate.
+  39 Folien im weißen Stil, Theorie, technische Diagramme, Betrieb und Prüfresultate.
 - [Technische Dokumentation](docs/TECHNICAL.md): Datenfluss, Konfiguration und Grenzen.
 - [Prüfbericht](docs/AUDIT.md) und [Messprotokolle](docs/evaluation/).
 - [Notebook](notebooks/document_processing_pipeline.ipynb):
@@ -146,9 +146,34 @@ die laufende App den gemeinsamen OpenAI-SDK-Client.
 
 Die ältere DOCX-Datei und der Optimierungsentwurf vom Juli 2026 sind historische
 Unterlagen. Für die aktuelle Anwendung gelten die oben verlinkten Markdown-
-Dokumente und die PPTX.
+Dokumente und die PPTX unter `docs/slides/`. Die gleichnamige PPTX im
+Projektstamm ist eine identische Kopie. Die zusätzlich vorhandenen Dateien
+`RAG_Waschmaschine_Dokumentation_THWS.pptx` und `.pdf` wurden unverändert
+übernommen; diese 54-seitige Gestaltungsvariante basiert auf dem Stand vor den
+abschließenden Live-Korrekturen und ist nicht der aktuelle Prüfstand.
 
 Die Anwendung ist eine lokale Lehr- und Demoanwendung. Der voreingestellte
 Flask-Server lauscht nur auf dem eigenen Rechner. Der tatsächliche Mac mit
 LM Studio muss separat praktisch geprüft werden. Modellantworten ersetzen
 keine Sicherheits- und Kundendiensthinweise des Originalhandbuchs.
+
+
+### Antworten vorlesen und aufs Handy übertragen
+
+Nach einer belegten Antwort liest **Vorlesen** die vollständigen Schritte vor.
+Der Status zeigt Beginn, Ende und mögliche Browserfehler an. Eine deutsche
+Systemstimme und eine funktionierende Audioausgabe sind nötig.
+
+**Antwort aufs Handy** erzeugt einen QR-Code für eine grafische Schrittansicht
+mit Symbolen, Abhakfeldern und Quellenhinweisen. Die bereits erzeugte Antwort
+steckt im Link; auf dem Handy ist keine erneute KI-Anfrage und kein API-Key nötig.
+Die [öffentliche Leseseite](https://swrobuts.github.io/SiemensWashingMachineTroubleShooting_LocalLLM/)
+ist vom lokalen RAG-Server getrennt. Jeder mit dem Link kann den Inhalt lesen.
+
+Bei einer zu langen Antwort wird kein gekürzter QR-Code erzeugt. Stattdessen
+kann die vollständige Anleitung als HTML-Datei gespeichert und auf das Handy
+übertragen werden. Symbole dienen der Orientierung und ersetzen keine Abbildungen
+in der Originalanleitung. Ein echter Scan- und Audiotest auf dem eigenen Handy
+bleibt vom jeweiligen Gerät und Browser abhängig.
+
+Frontend-Tests: `node --test tests/guide.test.cjs`.

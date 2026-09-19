@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -20,6 +21,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent
+logger = logging.getLogger(__name__)
 load_dotenv(ROOT / ".env")
 
 # Embedding-Modell — per ENV umstellbar (Phase 1: e5-base / bge-m3).
@@ -27,7 +29,7 @@ DEFAULT_EMBED_MODEL = os.getenv("EMBED_MODEL", "intfloat/multilingual-e5-small")
 
 # Version der Chunking-/Node-Logik. Erhöhen, wenn sich der Parser ändert, damit
 # ein alter persistenter Index automatisch verworfen und neu gebaut wird.
-PARSER_VERSION = "md-v4-token-bounded"
+PARSER_VERSION = "md-v5-procedure-context"
 
 # Große Markdown-Tabellen (z. B. die Fehlercode-Tabelle, ~6 KB) embedden als
 # unspezifischer „Brei" und werden für konkrete Fragen nicht gefunden. Solche
@@ -55,6 +57,7 @@ ENABLE_RERANK = os.getenv("ENABLE_RERANK", "1") != "0"
 # Relevanzfilter: explizite Sigmoid-Scores in [0,1], keine Wahrheitswahrscheinlichkeit.
 # Die Schwelle ist ein Projektparameter und braucht ein größeres annotiertes Evalset.
 GUARDRAIL_MIN_SCORE = float(os.getenv("GUARDRAIL_MIN_SCORE", "0.15"))
+CONTEXT_SCORE_RATIO = float(os.getenv("CONTEXT_SCORE_RATIO", "0.5"))
 
 # Antwort, wenn die Frage nicht durch das Handbuch gedeckt ist (kein LLM-Aufruf).
 NOT_IN_MANUAL = (
@@ -80,6 +83,20 @@ def is_grounded(nodes, min_score: float | None = None, *, reranked: bool = True)
     thr = GUARDRAIL_MIN_SCORE if min_score is None else min_score
     score = top_relevance(nodes)
     return bool(nodes) and math.isfinite(score) and score >= thr
+
+
+def select_context_nodes(nodes, *, reranked=True):
+    """Keep relevant evidence instead of filling every answer with five hits.
+
+    The relative floor is an explicit project heuristic, not a probability.
+    It prevents much weaker cross-topic candidates from entering the answer.
+    """
+    if not reranked:
+        return [n for n in nodes if n.node.metadata.get('exact_code_match')]
+    if not 0 <= CONTEXT_SCORE_RATIO <= 1:
+        raise ValueError('CONTEXT_SCORE_RATIO muss zwischen 0 und 1 liegen.')
+    floor = max(GUARDRAIL_MIN_SCORE, top_relevance(nodes) * CONTEXT_SCORE_RATIO)
+    return [n for n in nodes if n.score is not None and math.isfinite(n.score) and n.score >= floor]
 
 # Fehlercodes (E:18, E18, "Fehler 18") aus der Frage ziehen. Dense-Retrieval
 # findet solche seltenen Codes unzuverlässig — deshalb holt der Hybrid-Retriever
@@ -229,13 +246,24 @@ def prepare_nodes(md_path=DEFAULT_MD_PATH, tokenizer=None):
     for i in range(1, len(parts), 2):
         documents.append(Document(text=parts[i + 1], metadata={"file_name": Path(md_path).name,
                                                                "pdf_page": int(parts[i])}))
-    nodes = _explode_markdown_tables(MarkdownNodeParser().get_nodes_from_documents(documents))
+    from manual_context import groups_from_text, group_for_text
+    groups = groups_from_text(raw)
+    parsed = MarkdownNodeParser().get_nodes_from_documents(documents)
+    for node in parsed:
+        group_id = group_for_text(node.text, groups)
+        if group_id:
+            node.metadata['context_group'] = group_id
+            node.metadata['procedure_title'] = groups[group_id]['title']
+            node.text = 'Dokumentkontext: ' + groups[group_id]['title'] + '\n' + node.text
+    nodes = _explode_markdown_tables(parsed)
     splitter = SentenceSplitter(chunk_size=CHUNK_TOKENS, chunk_overlap=CHUNK_OVERLAP,
                                 tokenizer=tokenizer)
     result = []
     for node in nodes:
         heading = next((l.lstrip("# ") for l in node.text.splitlines() if l.startswith("#")), "")
         metadata = dict(node.metadata, section=heading)
+        if node.metadata.get('procedure_title'):
+            metadata['section'] = node.metadata['procedure_title'] + ' / ' + heading
         for part in splitter.split_text(node.text):
             result.append(TextNode(text=part, metadata=metadata,
                                    excluded_embed_metadata_keys=list(metadata),
@@ -280,21 +308,21 @@ def _build_or_load_index(md_path, persist_dir, embed_model_name):
     Settings.embed_model = embed_model
 
     if key_file.exists() and key_file.read_text(encoding="utf-8").strip() == cache_key:
-        print(f"♻️  Lade persistenten Index aus '{persist_dir}' (Cache-Treffer).")
+        logger.info("Lade persistenten Index aus %s (Cache-Treffer).", persist_dir)
         try:
             storage_context = StorageContext.from_defaults(persist_dir=str(persist_dir))
             return load_index_from_storage(storage_context, embed_model=embed_model)
         except (OSError, ValueError, KeyError):
-            print("Unvollständiger Index-Cache; Index wird neu erstellt.")
+            logger.warning("Unvollstaendiger Index-Cache; Index wird neu erstellt.")
 
-    print(f"🔧 Baue Index neu (Quelle/Konfig geändert) → '{persist_dir}' …")
+    logger.info("Baue Index neu (Quelle/Konfiguration geaendert): %s", persist_dir)
     tokenizer = embed_model._model.tokenizer
     nodes = prepare_nodes(md_path, tokenizer=lambda t: tokenizer.encode(t, add_special_tokens=False))
     index = VectorStoreIndex(nodes, embed_model=embed_model)
     persist_dir.mkdir(parents=True, exist_ok=True)
     index.storage_context.persist(persist_dir=str(persist_dir))
     key_file.write_text(cache_key, encoding="utf-8")
-    print(f"✅ Index gebaut & persistiert ({len(nodes)} Abschnitte).")
+    logger.info("Index gebaut und persistiert (%d Abschnitte).", len(nodes))
     return index
 
 

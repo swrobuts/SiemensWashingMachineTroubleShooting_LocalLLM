@@ -1,4 +1,5 @@
 'use strict';
+window.addEventListener('hashchange',()=>location.reload());
 (async()=>{
   const style=document.createElement('style'); style.textContent=AnswerGuide.css; document.head.append(style);
   const status=document.getElementById('status'), content=document.getElementById('content');

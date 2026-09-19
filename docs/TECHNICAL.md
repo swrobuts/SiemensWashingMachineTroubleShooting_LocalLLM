@@ -77,10 +77,29 @@ noch Reciprocal Rank Fusion**.
 Der mehrsprachige Cross-Encoder
 [bge-reranker-v2-m3](https://huggingface.co/BAAI/bge-reranker-v2-m3)
 bewertet Frage und Kandidat gemeinsam. Die Implementierung bildet seine Logits
-explizit mit Sigmoid ab und wählt die besten fünf Abschnitte. Der Filterwert
+explizit mit Sigmoid ab und liefert bis zu fünf Kandidaten. Für den Antwortkontext
+bleiben nur Kandidaten mit Score ≥ max(0,15; 0,5 × bester Score). Der relative
+Filter ist über CONTEXT_SCORE_RATIO konfigurierbar und ebenfalls eine Heuristik. Der Filterwert
 0,15 ist ein Projektparameter, keine kalibrierte Wahrheitswahrscheinlichkeit.
 Ohne Reranker akzeptiert der konservative Fallback nur exakte Fehlercodes.
 Ein unbekannter gefragter Code darf keine fremde Codebedeutung übernehmen.
+
+### Zusammenhang von Arbeitsanleitungen
+
+Die flache OCR-Struktur trennt bei der Pumpenreinigung den Warnhinweis von den
+Arbeitsschritten. `manual_context.py` ergänzt deshalb vier am vorhandenen Handbuch
+geprüfte Abschnittsgruppen: Pumpenreinigung, Notentriegelung, erster Waschgang
+und Transport. Das ist kuratierte Metadatenarbeit für genau diese Anleitung,
+keine allgemeine automatische Rekonstruktion beliebiger PDF-Hierarchien.
+
+Chunk-Metadaten und eingebettete Texte enthalten den Dokumentkontext. Nach dem
+Retrieval ersetzt die App einen Treffer innerhalb einer solchen Gruppe durch
+deren vollständigen Originaltext und entfernt doppelte Gruppen. Damit bleiben
+Warnungen, Stromtrennung und Vorbereitung zusammen mit den Arbeitsschritten.
+Der Quelltext selbst bleibt unverändert. Die maximal 440 Tokens gelten für
+Embedding-Chunks; ein expandierter Antwortbeleg darf größer sein. Das globale
+Antwortbudget bleibt 14.000 Zeichen. Die Parser-Version `md-v5-procedure-context`
+erzwingt einen Indexneuaufbau. `CONTEXT_SCORE_RATIO` wirkt erst zur Anfragezeit.
 
 ### Speicherung und Cache
 
@@ -110,7 +129,13 @@ Die App flacht die Abschnittsübersichten ab, fragt das gewählte LLM in Batches
 von 30 und akzeptiert ausschließlich gültige IDs des jeweiligen Batches.
 Bei mehr als fünf Kandidaten folgt eine globale Auswahl. Das vermeidet eine
 rein nach Kapitelposition abgeschnittene Auswahl. Ungültiges JSON wird als
-leere Auswahl behandelt.
+leere Auswahl behandelt. Die Übersichten enthalten zusätzlich den zugeordneten
+Arbeitskontext. Ausgewählte Teilabschnitte werden ebenfalls zu vollständigen
+Arbeitsanleitungen erweitert. Anschließend passt die App nur vollständige
+Abschnitte in das Kontextbudget ein, bevorzugt exakte gefragte Fehlercodes und
+zeigt ausschließlich die tatsächlich übergebenen Belege. Passt kein ausgewählter
+Abschnitt vollständig hinein, wird ein Fehler ausgelöst; Texte werden nicht
+mitten in einem Warnhinweis abgeschnitten.
 
 Die Variante orientiert sich an [PageIndex](https://github.com/VectifyAI/PageIndex),
 implementiert aber keine vollständige agentische Tiefensuche des aktuellen SDK.
@@ -213,3 +238,35 @@ Einprozess-Server gedacht. Die CLI ist für LM Studio vorgesehen.
 - Folgefragen werden textlich ergänzt; es gibt keinen vollständigen Chatverlauf.
 - Die Oberfläche ist ausschließlich lokal erreichbar. Ein QR-Link mit localhost funktioniert nicht auf einem anderen Gerät.
 - Die Demo hat keine Anmeldung und keinen gehärteten Mehrbenutzerbetrieb.
+
+
+## Vorlesen und mobile Anleitung
+
+`mobile/speech.js` kapselt die Web Speech API. Die Ausgabe umfasst Zusammenfassung,
+Einleitung und sämtliche Schritte, bevorzugt eine lokale deutsche Stimme und
+teilt lange Texte in kurze Abschnitte. Start, Ende, Abbruch und Fehler sind im GUI
+sichtbar. Verfügbare Stimmen und die hörbare Ausgabe hängen vom Browser und dem
+Betriebssystem ab. Die Anwendung ruft dafür keine OpenAI-Audio-API auf.
+
+`mobile/guide.js` erzeugt einen versionierten JSON-Datensatz aus Frage, Antwort,
+Schritten, Quellenhinweisen und Datum. Keine Schlüssel, Cookies oder vollständigen
+Retrieval-Daten werden übernommen. Gzip und Base64url komprimieren den Datensatz
+im URL-Fragment `#g1.…`. Beim HTTP-Abruf wird dieses Fragment nicht an GitHub Pages
+übertragen. Die öffentliche Leseseite lädt nur eigene statische Dateien und ruft
+keine API auf. Jeder Besitzer des Links kann die Antwort lesen; es handelt sich
+nicht um verschlüsselte oder zugriffsgeschützte Freigabe.
+
+Der QR-Link ist auf 1.900 Zeichen begrenzt. Zu lange Antworten werden nicht
+gekürzt, sondern als eigenständige HTML-Datei angeboten. Der Decoder begrenzt
+dekomprimierte Inhalte auf 32.000 Bytes, prüft das Schema und maskiert alle
+Antworttexte vor der HTML-Darstellung. Symbole sind allgemeine Orientierung,
+keine Abbildung gerätespezifischer Bauteile. Offline-HTML enthält keine Scripts
+oder Netzwerkanfragen. Abhakzustände werden nicht dauerhaft gespeichert.
+
+GitHub Pages veröffentlicht über `.github/workflows/mobile-guide.yml`
+ausschließlich `mobile/`. Der Flask-Server bleibt auf Loopback beschränkt.
+Die statische Leseseite erweitert den Zugriff auf die lokale API nicht.
+
+Referenzen: [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API),
+[CompressionStream](https://developer.mozilla.org/en-US/docs/Web/API/CompressionStream/CompressionStream),
+[GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).

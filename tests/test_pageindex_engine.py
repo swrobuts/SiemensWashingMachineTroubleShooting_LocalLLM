@@ -34,3 +34,42 @@ def test_stale_tree_refused(tmp_path):
     path.write_text(json.dumps({'source_sha256':'wrong','structure':[]}),encoding='utf-8')
     with pytest.raises(ValueError):
         pe.load_tree(path)
+
+
+def test_context_budget_keeps_complete_sections_and_matching_sources(monkeypatch):
+    nodes = [{'node_id':'1','text':'abcdefgh'}, {'node_id':'2','text':'12345678'},
+             {'node_id':'3','text':'xyz'}]
+    monkeypatch.setattr(pe, 'search', lambda *a, **kw: nodes)
+    monkeypatch.setenv('CONTEXT_MAX_CHARS', '13')
+    context, sources = pe.retrieve_context('Waschmaschine')
+    assert context == 'abcdefgh\n\nxyz'
+    assert [n['node_id'] for n in sources] == ['1','3']
+    assert len(context) <= 13
+
+
+def test_context_budget_prioritizes_exact_code_not_prefix(monkeypatch):
+    nodes = [{'node_id':'1','text':'E:180 sonstiges'},
+             {'node_id':'2','text':'E:18 Pumpe'}]
+    monkeypatch.setattr(pe, 'search', lambda *a, **kw: nodes)
+    monkeypatch.setenv('CONTEXT_MAX_CHARS', '16')
+    context, sources = pe.retrieve_context('Was bedeutet E:18?')
+    assert context == 'E:18 Pumpe'
+    assert [n['node_id'] for n in sources] == ['2']
+
+
+def test_oversized_section_is_not_silently_cut_or_reported_missing(monkeypatch):
+    monkeypatch.setattr(pe, 'search', lambda *a, **kw: [{'node_id':'1','text':'Long source'}])
+    monkeypatch.setenv('CONTEXT_MAX_CHARS', '5')
+    with pytest.raises(ValueError, match='Kontextbudget'):
+        pe.retrieve_context('Waschmaschine')
+
+
+def test_real_manual_error_tables_fit_together_only_after_packing(monkeypatch):
+    pe.load_tree()
+    nodes = [pe._node_map['0126'], pe._node_map['0125']]
+    monkeypatch.setattr(pe, 'search', lambda *a, **kw: nodes)
+    monkeypatch.setenv('CONTEXT_MAX_CHARS', '14000')
+    assert sum(len(n['text']) for n in nodes) > 14000
+    context, sources = pe.retrieve_context('Was bedeutet E:23?')
+    assert 'E:23' in context and len(context) <= 14000
+    assert [n['node_id'] for n in sources] == ['0125']

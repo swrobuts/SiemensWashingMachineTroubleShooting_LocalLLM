@@ -515,6 +515,11 @@
         .explain .limits-copy { margin-top:28px; font-size:15px; line-height:1.7; }
         @media(max-width:700px) { .contract-grid { grid-template-columns:1fr; gap:24px; } }
 
+        #qrcode-container { position:fixed; top:50%; left:50%; right:auto; bottom:auto; transform:translate(-50%,-50%); width:min(92vw,440px); max-height:90vh; overflow:auto; padding:24px; z-index:1000; box-sizing:border-box; box-shadow:0 15px 65px #16313a40; }
+        #qrcode { padding:16px; background:white; }
+        #qrcode img,#qrcode canvas { max-width:100%; height:auto; margin:auto; image-rendering:pixelated; }
+        #qrcode-container button { margin:8px 2px; }
+        [hidden] { display:none !important; }
     </style>
 </head>
 <body>
@@ -599,15 +604,20 @@
                 <!-- QR Code Button -->
                 <div class="qr-wrapper">
                     <button class="action-btn" onclick="toggleQR()" style="width: auto;">
-                        Frage als QR-Code
+                        Antwort aufs Handy
                     </button>
                     <div id="qrcode-container">
                         <div style="margin-bottom: 10px; font-size: 14px; font-weight: bold; color: var(--siemens-navy);">QR-Code scannen</div>
-                        <div id="qrcode"></div><p id="qr-note" style="font-size:12px"></p>
+                        <div id="qrcode"></div>
+                        <p id="qr-note" role="status" style="font-size:13px"></p>
+                        <p><a id="guideLink" target="_blank" rel="noopener noreferrer" hidden>Anleitung öffnen</a></p>
+                        <button type="button" class="action-btn" onclick="downloadGuide()">HTML-Anleitung speichern</button>
+                        <button type="button" class="action-btn" onclick="document.getElementById('qrcode-container').style.display='none'">Schließen</button>
                     </div>
                 </div>
             </div>
         </div>
+        <p id="speechStatus" role="status" aria-live="polite" style="font-size:14px;color:#526870"></p>
         <div id="results-list"></div>
         <div class="usage-line" id="usageLine"></div>
 
@@ -665,7 +675,7 @@
             <dl class="pipeline-facts">
               <div><dt>Kandidaten</dt><dd>Kosinusähnlichkeit liefert Top 12. Normalisierte Fehlercodes ergänzen exakte Treffer; doppelte Nodes entfallen.</dd></div>
               <div><dt>Reranking</dt><dd><code>bge-reranker-v2-m3</code> bewertet Frage und Passage gemeinsam. Explizite Sigmoid-Abbildung; anschließend Top 5.</dd></div>
-              <div><dt>Freigabe</dt><dd>Höchster Score ≥ 0,15. Ein gefragter Fehlercode muss im Kontext vorkommen. Ohne Reranker akzeptiert der Fallback nur exakte Codes.</dd></div>
+              <div><dt>Freigabe</dt><dd>Kontexttreffer: Score ≥ max(0,15; 0,5 × bester Score). Ein gefragter Fehlercode muss im verbleibenden Kontext vorkommen. Ohne Reranker akzeptiert der Fallback nur exakte Codes.</dd></div>
               <div><dt>LLM-Aufrufe</dt><dd>Keine in der Suche. Bei ausreichendem Kontext folgt die Antwortgenerierung.</dd></div>
             </dl>
           </section>
@@ -678,7 +688,7 @@
             </dl>
           </section>
         </div>
-        <p class="implementation-note"><strong>Score ≠ Antwortkorrektheit:</strong> 0,15 ist ein Projektparameter und keine kalibrierte Wahrscheinlichkeit. Ein relevanter Kontext kann unvollständig sein; die Generierung kann trotz passender Quellen unbelegte Aussagen erzeugen.</p>
+        <p class="implementation-note"><strong>Arbeitskontext:</strong> Vier kuratierte Abschnittsgruppen verbinden unter anderem Pumpenreinigung und zugehörige Warnungen. Treffer werden vor der Generierung um die vollständige Arbeitsanleitung erweitert. <strong>Score ≠ Antwortkorrektheit:</strong> 0,15 ist ein Projektparameter und keine kalibrierte Wahrscheinlichkeit. Ein relevanter Kontext kann unvollständig sein; die Generierung kann trotz passender Quellen unbelegte Aussagen erzeugen.</p>
       </section>
 
       <section class="explain-section" aria-labelledby="adapter-title">
@@ -707,7 +717,7 @@
   "mode": "hybrid",
   "provider": "local"
 }</pre><p class="technical-small">1–2000 Zeichen pro Frage. Maximale Request-Größe: 16 KiB. Ungültige Eingaben: HTTP 400. Konfigurations- und Modellfehler: HTTP 503 bzw. SSE-Fehlerereignis nach Streambeginn.</p></div>
-          <div><p class="method-label">ANTWORTVERARBEITUNG</p><p>Systemprompt und Nutzerdaten sind getrennt. Der Prompt begrenzt Antworten auf den bereitgestellten Kontext. Kontextbudget: 14.000 Zeichen; größere Kontexte werden abgelehnt. Maximale Ausgabe: 1.024 Tokens.</p><p>Das strukturierte Antwortformat wird geparst. Ein Abbruch am Tokenlimit gilt als Fehler. Der Browser maskiert dynamisches HTML; Quelltexte werden als Text dargestellt.</p></div>
+          <div><p class="method-label">ANTWORTVERARBEITUNG</p><p>Systemprompt und Nutzerdaten sind getrennt. Der Prompt begrenzt Antworten auf den bereitgestellten Kontext. Kontextbudget: 14.000 Zeichen. PageIndex packt vollständige Abschnitte in dieses Budget; ein danach zu großer Kontext wird abgelehnt. Maximale Ausgabe: 1.024 Tokens.</p><p>Das strukturierte Antwortformat wird geparst. Ein Abbruch am Tokenlimit gilt als Fehler. Der Browser maskiert dynamisches HTML; Quelltexte werden als Text dargestellt.</p></div>
         </div>
         <div class="event-sequence" aria-label="SSE-Ereignisse"><code>status</code><span>→</span><code>meta</code><span>→</span><code>token</code><span>→</span><code>result</code><span>→</span><code>[DONE]</code></div>
         <p class="implementation-note"><strong>Provenienz:</strong> Die Antwort enthält die verwendeten Nodes mit Abschnitt, Originaltext und gegebenenfalls PDF-Seite bzw. Score. Das ermöglicht Nachprüfung, ersetzt aber keine semantische Belegprüfung. Angezeigte Tokenzahlen betreffen nur den Antwortaufruf; PageIndex-Auswahlaufrufe sind darin nicht enthalten.</p>
@@ -715,22 +725,27 @@
 
       <section class="explain-section" aria-labelledby="eval-title">
         <div class="section-heading"><span class="section-number">05</span><h3 id="eval-title">Retrieval-Evaluation</h3></div>
-        <p class="section-intro">Messung vom 19.09.2026 am realen Handbuch. Zehn vorhandene Fragen, Top 5 finale Treffer. Alle Varianten verwenden denselben aktualisierten Index; die Ablation variiert Fehlercode-Lookup und Reranking.</p>
-        <div class="metrics-wrap"><table class="metrics-table"><caption>Stichwortbasierte Suchmetriken, n = 10</caption><thead><tr><th scope="col">Variante</th><th scope="col">Hit@5</th><th scope="col">Hit@1</th><th scope="col">MRR</th><th scope="col">Abdeckung</th></tr></thead><tbody><tr><th scope="row">Vektor allein</th><td>90 %</td><td>60 %</td><td>0,725</td><td>73,5 %</td></tr><tr><th scope="row">Hybrid ohne Reranker</th><td>100 %</td><td>70 %</td><td>0,825</td><td>88,5 %</td></tr><tr class="measured-default"><th scope="row">Hybrid mit Reranker</th><td>100 %</td><td>90 %</td><td>0,950</td><td>91,0 %</td></tr></tbody></table></div>
+        <p class="section-intro">Messung vom 19.09.2026 am realen Handbuch. Zehn vorhandene Fragen, Top-5-Kandidaten vor Kontextfilter und Erweiterung der Arbeitsanleitungen. Alle Varianten verwenden denselben aktualisierten Index; die Ablation variiert Fehlercode-Lookup und Reranking.</p>
+        <div class="metrics-wrap"><table class="metrics-table"><caption>Stichwortbasierte Suchmetriken, n = 10</caption><thead><tr><th scope="col">Variante</th><th scope="col">Hit@5</th><th scope="col">Hit@1</th><th scope="col">MRR</th><th scope="col">Abdeckung</th></tr></thead><tbody><tr><th scope="row">Vektor allein</th><td>80 %</td><td>60 %</td><td>0,700</td><td>64,5 %</td></tr><tr><th scope="row">Hybrid ohne Reranker</th><td>90 %</td><td>70 %</td><td>0,800</td><td>82,0 %</td></tr><tr class="measured-default"><th scope="row">Hybrid mit Reranker</th><td>100 %</td><td>100 %</td><td>1,000</td><td>93,5 %</td></tr></tbody></table></div>
         <p class="technical-small"><strong>Definitionen:</strong> Hit@k verlangt mindestens ein erwartetes Stichwort in den Top k. MRR mittelt den Kehrwert des ersten Stichworttrefferrangs. Abdeckung bezeichnet den Anteil gefundener erwarteter Stichwörter.</p>
-        <div class="limits-copy"><p><strong>Aussagebereich.</strong> Die Werte belegen Suchverhalten auf diesem kleinen Testset. Sie messen weder fachlich annotierte Dokumentrelevanz noch Antworttreue. Vier ergänzte Gegenbeispiele wurden abgelehnt; daraus folgt keine allgemeine Robustheitsgarantie.</p><p><strong>Offene Validierung.</strong> Reale LM-Studio-Antworten auf dem Mac, vollständige OpenAI-RAG-Antwortprüfung und ein größerer fachlich annotierter Testbestand stehen aus. PageIndex bleibt experimentell.</p></div>
+        <div class="limits-copy"><p><strong>Aussagebereich.</strong> Die Werte belegen Suchverhalten auf diesem kleinen Testset. Sie messen weder fachlich annotierte Dokumentrelevanz noch Antworttreue. Vier ergänzte Gegenbeispiele wurden abgelehnt; daraus folgt keine allgemeine Robustheitsgarantie.</p><p><strong>Offene Validierung.</strong> Ein größerer fachlich annotierter Testbestand und reale LM-Studio-Antworten auf dem Mac stehen aus. OpenAI-Live-Tests prüfen zusätzlich Antworten, Warnhinweise und Ablehnung; Einzelheiten stehen im Prüfbericht. PageIndex bleibt experimentell.</p></div>
         <footer class="explain-footer"><span>Implementierungsstand 19.09.2026</span><a href="https://github.com/swrobuts/SiemensWashingMachineTroubleShooting_LocalLLM/blob/main/docs/AUDIT.md" target="_blank" rel="noopener noreferrer">Prüfbericht und Messprotokolle ↗</a><a href="https://github.com/swrobuts/SiemensWashingMachineTroubleShooting_LocalLLM/blob/main/docs/TECHNICAL.md" target="_blank" rel="noopener noreferrer">Technische Dokumentation ↗</a></footer>
       </section>
     </article>
   </div>
 </main>
 
+<script src="/mobile/guide.js"></script>
+<script src="/mobile/speech.js"></script>
 <script>
     // System Variablen
     const API = location.protocol === 'file:' ? 'http://127.0.0.1:3001' : location.origin;
     let activeRequest = null;
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     let currentTtsText = "";
+    let currentGuide = null;
+    const GUIDE_VIEWER = 'https://swrobuts.github.io/SiemensWashingMachineTroubleShooting_LocalLLM/';
+    const speechPlayer = GuideSpeech.create(document.getElementById('ttsButton'), document.getElementById('speechStatus'));
     let lastQuery = "";
     let currentMode = 'hybrid';
     let currentProvider = 'local';
@@ -840,65 +855,33 @@
 
     function renderAnalysis() { analysisRendered = true; }
 
-    // 1. Text-To-Speech (Vorlesen)
-    window.speechSynthesis.onvoiceschanged = function() {
-        window.speechSynthesis.getVoices();
-    };
+    // Speech runs through the browser/OS; no OpenAI audio request.
+    function toggleTTS() { speechPlayer.speak(currentTtsText); }
 
-    function toggleTTS() {
-        if (!currentTtsText) return;
-        const btn = document.getElementById('ttsButton');
-
-        if (window.speechSynthesis.speaking) {
-            window.speechSynthesis.cancel();
-            btn.innerHTML = '🔊 Vorlesen';
-            return;
-        }
-
-        if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(currentTtsText);
-            utterance.lang = 'de-DE';
-            utterance.rate = 0.95;
-            utterance.pitch = 1.0;
-
-            const voices = window.speechSynthesis.getVoices();
-            const goodVoice = voices.find(v => v.lang.includes('de') && (v.name.includes('Google') || v.name.includes('Premium') || v.name.includes('Natural')));
-            if (goodVoice) utterance.voice = goodVoice;
-
-            utterance.onend = function() { btn.innerHTML = '🔊 Vorlesen'; };
-            utterance.onerror = function() { btn.innerHTML = '🔊 Vorlesen'; };
-
-            window.speechSynthesis.speak(utterance);
-            btn.innerHTML = '⏹️ Stopp';
-        } else {
-            alert("Ihr Browser unterstützt leider keine Sprachausgabe.");
-        }
+    async function toggleQR() {
+        const panel = document.getElementById('qrcode-container');
+        if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
+        if (!currentGuide) return;
+        const guide = currentGuide;
+        panel.style.display = 'block';
+        const qr = document.getElementById('qrcode'); qr.replaceChildren();
+        const note = document.getElementById('qr-note'), link = document.getElementById('guideLink');
+        link.hidden = true; link.removeAttribute('href'); note.textContent = 'Anleitung wird vorbereitet …';
+        try {
+            const url = await AnswerGuide.makeUrl(GUIDE_VIEWER, guide);
+            if (guide !== currentGuide) return;
+            new QRCode(qr, {text:url, width:360, height:360, colorDark:'#102e36', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M});
+            link.href=url; link.hidden=false;
+            note.textContent='Mit der Handykamera scannen. Die Antwort wird ohne erneute KI-Anfrage geöffnet. Jeder mit diesem QR-Code kann sie lesen.';
+        } catch(error) { note.textContent=error.message || 'Der QR-Code konnte nicht erstellt werden.'; }
     }
 
-    // 2. QR Code Generator
-    function toggleQR() {
-        const qrContainer = document.getElementById('qrcode-container');
-        const qrDiv = document.getElementById('qrcode');
-
-        if (qrContainer.style.display === 'block') {
-            qrContainer.style.display = 'none';
-        } else {
-            qrDiv.innerHTML = '';
-            qrContainer.style.display = 'block';
-
-            document.getElementById('qr-note').textContent = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) ? 'Diese lokale Adresse funktioniert nur auf diesem Rechner. Für ein Handy ist eine erreichbare Adresse im privaten Netzwerk nötig.' : 'Das Handy muss diese App-Adresse erreichen können.';
-            const query = document.getElementById('searchInput').value;
-            const url = window.location.href.split('?')[0] + '?q=' + encodeURIComponent(query);
-
-            new QRCode(qrDiv, {
-                text: url,
-                width: 150,
-                height: 150,
-                colorDark : "#000028",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.L
-            });
-        }
+    function downloadGuide() {
+        if(!currentGuide) return;
+        const blob=new Blob([AnswerGuide.portableHTML(currentGuide)],{type:'text/html;charset=utf-8'});
+        const url=URL.createObjectURL(blob), a=document.createElement('a');
+        a.href=url; a.download='Waschmaschinen-Anleitung.html'; a.click();
+        setTimeout(()=>URL.revokeObjectURL(url),10000);
     }
 
     document.addEventListener('click', function(event) {
@@ -943,14 +926,16 @@
     }
 
     // Strukturierte Ergebnis-Karten rendern (aus dem finalen 'result'-Event)
-    function renderResults(data, reference) {
+    function renderResults(data, reference, question) {
         const resultsList = document.getElementById('results-list');
         const actionBar = document.getElementById('actionBar');
         const followupContainer = document.getElementById('followup-container');
 
         resultsList.innerHTML = '';
-        if (data.tts_summary) {
-            currentTtsText = data.tts_summary;
+        currentGuide = AnswerGuide.fromResponse(data, question);
+        currentTtsText = AnswerGuide.speechText(currentGuide);
+        document.querySelector('.qr-wrapper').hidden = !currentGuide.steps.length;
+        if (currentTtsText) {
             actionBar.style.display = 'flex';
         }
         const results = data.results || [];
@@ -1018,8 +1003,10 @@
         document.getElementById('showFollowupBtn').style.display = 'inline-flex';
         document.getElementById('followupInputContainer').style.display = 'none';
         document.getElementById('qrcode-container').style.display = 'none';
-        window.speechSynthesis.cancel();
-        document.getElementById('ttsButton').innerHTML = '🔊 Vorlesen';
+        speechPlayer.stop();
+        document.getElementById('speechStatus').textContent = '';
+        currentGuide = null;
+        currentTtsText = '';
         document.getElementById('usageLine').innerHTML = '';
 
         resultsList.innerHTML = `
@@ -1085,9 +1072,9 @@
                         try { data = JSON.parse(dataStr); } catch (e) {}
                         if (data) {
                             receivedResult = true;
-                            renderResults(data, reference);
+                            renderResults(data, reference, queryToUse);
                             showUsage(data.usage);
-                            lastQuery = rawInput;
+                            lastQuery = queryToUse;
                         }
                     } else if (evName === 'error') {
                         receivedResult = true;

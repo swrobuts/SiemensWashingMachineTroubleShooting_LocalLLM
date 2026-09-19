@@ -42,15 +42,16 @@ und keine fachliche Freigabe für beliebige Maschinenreparaturen.
 
 ## Prüfresultate
 
-- **70 automatisierte Tests bestanden.** Logik, private Dateirouten, fehlerhafte
+- **85 Python-Tests und 12 JavaScript-Tests bestanden.** Logik, private Dateirouten, fehlerhafte
   Eingaben, JSON/SSE, Antwortformat, Tokenabbruch, Provider-Isolation und
   OpenAI-kompatibler HTTP-Vertrag zu einem lokalen Testserver.
 - **Schlüsselschutz:** Sitzungsisolation, Entfernung, Ablauf, Neustart, CSRF,
   Host-/Origin-Sperre sowie kein Key in Cookie, Antwort oder Fehlerprotokoll geprüft.
-- **Git-Inhalt:** 64 Projektdateien einschließlich entpackter DOCX-/PPTX-Inhalte
-  auf den vorhandenen Key und auf OpenAI-Schlüssel-Muster geprüft: kein Fund.
+- **Git-Inhalt:** Zur Synchronisation vorgesehene Projektdateien einschließlich
+  entpackter DOCX-/PPTX-Inhalte und PDF-Text auf OpenAI-Schlüssel-Muster geprüft:
+  kein Fund. Lokale Schlüsselarchive, Caches und Konfigurationen sind ausgeschlossen.
 - **pip check:** keine inkonsistenten installierten Abhängigkeiten.
-- **GUI:** Umschalten zwischen lokal / OpenAI sichtbar geprüft. Passwortfeld mit
+- **Initiale GUI-Prüfung:** Umschalten zwischen lokal / OpenAI sichtbar geprüft. Passwortfeld mit
   einem unechten Testwert geprüft, nach Übernahme leer, Entfernen deaktiviert OpenAI.
   Die neu gestaltete Registerkarte dokumentiert Ingestion, beide Retrieval-Pipelines,
   Modelladapter, API-Vertrag, Provenienz und gemessene Retrieval-Metriken. Kein echter Key
@@ -65,21 +66,22 @@ und keine fachliche Freigabe für beliebige Maschinenreparaturen.
   gelang. Das prüft noch keine handbuchbasierte Antwort.
 - **Reale lokale LLM-Antworten:** nicht geprüft, weil der LM-Studio-Server auf
   dem Mac aus dieser Windows-Umgebung nicht erreichbar war.
-- **Vollständige OpenAI-RAG-Antwortprüfung:** noch ausstehend; dafür ist die
-  konkret angefragte Übertragung von Handbuchauszügen erforderlich.
+- **OpenAI-Live-Prüfung:** vom Nutzer freigegeben und über die Browsersitzung ausgeführt.
+  Der ergänzende [Live-Prüfbericht](evaluation/LIVE.md) dokumentiert Fälle und Grenzen.
 
 ### Reale Retrieval-Messung
 
 Alle drei Varianten verwenden dieselbe überarbeitete Aufbereitung und denselben
 E5-Index. Dies ist eine Ablation der Suchkomponenten, **kein vollständiger
 Vorher-/Nachher-Vergleich des alten Projekts**. Zehn Fragen, zwölf Vektorkandidaten
-und fünf finale Treffer.
+und fünf Kandidaten vor Antwortkontextfilter und Erweiterung der Arbeitsanleitungen.
+Die Messung wurde nach der Ergänzung der Arbeitskontexte erneut ausgeführt.
 
 | Variante | Keyword-Hit@5 | Keyword-Hit@1 | Keyword-MRR | Keyword-Abdeckung |
 |---|---:|---:|---:|---:|
-| Vektor allein | 90 % | 60 % | 0,725 | 73,5 % |
-| Hybrid ohne Reranker | 100 % | 70 % | 0,825 | 88,5 % |
-| Hybrid mit Reranker | 100 % | 90 % | 0,950 | 91,0 % |
+| Vektor allein | 80 % | 60 % | 0,700 | 64,5 % |
+| Hybrid ohne Reranker | 90 % | 70 % | 0,800 | 82,0 % |
+| Hybrid mit Reranker | 100 % | 100 % | 1,000 | 93,5 % |
 
 [Vector](evaluation/vector.json),
 [Hybrid ohne Reranker](evaluation/hybrid-no-rerank.json),
@@ -92,7 +94,7 @@ Das sind Such-Proxys, keine Beurteilung generierter Antworten und kein
 vollständiger Dokument-Recall. Unterschiedliche Aufwärmzustände beeinflussen
 die aufgezeichneten Laufzeiten; diese dienen hier nicht als Geschwindigkeitsbenchmark.
 
-### Gegenbeispiele mit echtem Reranker
+### Initiale Gegenbeispiele mit echtem Reranker
 
 | Frage | Höchster Score | Ergebnis |
 |---|---:|---|
@@ -101,7 +103,8 @@ die aufgezeichneten Laufzeiten; diese dienen hier nicht als Geschwindigkeitsbenc
 | Unbekannter Code E:180 | 0,000267 | Abgelehnt |
 | Motor einer Bosch-Spülmaschine | 0,027354 | Abgelehnt |
 
-[Messprotokoll](evaluation/negative-checks.json). Vier Beispiele sind keine
+[Messprotokoll](evaluation/negative-checks.json), vor Parser-Version md-v5.
+Aktuelle Live-Gegenproben: [LIVE.md](evaluation/LIVE.md). Vier Beispiele sind keine
 allgemeine Garantie gegen falsche Antworten oder Prompt-Injection.
 
 ## Getestete Abhängigkeiten
@@ -144,5 +147,27 @@ Für die aktuelle Nutzung ist die Eingabe über das GUI erforderlich.
 4. PageIndex bewertet gültige Auswahl-IDs und vorhandenen Text, bietet aber
    keinen gleichwertig kalibrierten semantischen Relevanzfilter.
 5. Das Zeichenbudget für Kontext ist kein exakter Tokenzähler des Antwortmodells.
-6. Öffentliche Bereitstellung benötigt getrenntes Deployment, Anmeldung und
-   Betriebsgrenzen. Hier bleibt die App standardmäßig auf 127.0.0.1.
+6. Eine öffentliche RAG-API benötigt Anmeldung und Betriebsgrenzen. Die lokale
+   API bleibt auf 127.0.0.1. GitHub Pages veröffentlicht ausschließlich die statische
+   Handy-Leseseite ohne Schlüssel und ohne KI-Endpunkt.
+
+
+## Im Live-Test zusätzlich gefundene Fehler
+
+- Windows-Konsolenkodierung: Emoji-Ausgaben konnten den Indexstart mit
+  UnicodeEncodeError abbrechen. Bibliotheks-Logging ersetzt die direkten Prints.
+  Cache-Treffer, Neuaufbau und Cache-Reparatur sind unter cp1252 getestet.
+- PageIndex-Kontextgröße: Mehrere vollständige Tabellen konnten das 14.000-Zeichen-
+  Budget überschreiten. Die Auswahl packt nun vollständige Abschnitte in das
+  Budget und zeigt nur übergebene Quellen. Keine stille Textkürzung.
+- Antwortformat: Wiederholte manual_steps-Tags verloren zuvor spätere Schritte.
+  Der Parser sammelt alle Blöcke. Die Checklisten-Konvertierung erhält Fettdruck.
+- Fehlender Arbeitskontext: Die Pumpensuche trennte Warnung und Reinigung und
+  bezog Transportvorbereitung ein. Vier kuratierte Kontextgruppen, kontextbezogene
+  Chunk-Metadaten, vollständige Verfahrensbelege und ein relativer Scorefilter
+  beheben den reproduzierten Fall. Das ist keine generelle Sicherheitsgarantie.
+- Vorlesen: Vollständige Schritte statt nur Zusammenfassung, abgesicherte
+  Browser-Unterstützung, Start-/Ende-/Fehleranzeige und abbrechbare Kurzabschnitte.
+- QR-Code: Die Antwort ersetzt den bisherigen localhost-Fragelink. Eine separat
+  veröffentlichte Leseseite stellt Schritte grafisch dar; Schlüssel werden nicht
+  übertragen. Große Antworten bleiben über HTML-Export vollständig erhalten.

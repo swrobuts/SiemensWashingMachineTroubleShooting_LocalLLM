@@ -35,6 +35,10 @@ def test_static_and_health_without_models():
     client = server.create_app(Backend()).test_client()
     assert client.get('/').status_code == 200
     assert client.get('/api/health').json['status'] == 'ok'
+    assert client.get('/mobile/').status_code == 200
+    assert client.get('/mobile/guide.js').status_code == 200
+    assert client.get('/mobile/../server.py').status_code == 404
+    assert client.get('/mobile/.env').status_code == 404
 
 
 def test_abstention_skips_llm():
@@ -73,6 +77,17 @@ def test_json_sse_equivalence():
 def test_malformed_output_is_not_manual_evidence():
     with pytest.raises(ValueError):
         server.parse_ai_response('Plain unverified model knowledge')
+
+
+def test_repeated_step_tags_do_not_drop_answer_parts():
+    raw = '<summary>E18</summary><manual_steps>- **Pumpe:** reinigen</manual_steps><manual_steps>- **Ablauf:** reinigen</manual_steps>'
+    _, content, _ = server.parse_ai_response(raw)
+    assert '**Pumpe:**' in content and '**Ablauf:**' in content
+    assert content.count('- [ ]') == 2
+
+
+def test_checkbox_conversion_preserves_bold_and_unbulleted_warnings():
+    assert server.make_checkboxes('**Warnung:** abkühlen\n- **Strom:** Netzstecker ziehen') == '- [ ] **Warnung:** abkühlen\n- [ ] **Strom:** Netzstecker ziehen'
 
 
 def test_context_budget_rejects_instead_of_silently_cutting():

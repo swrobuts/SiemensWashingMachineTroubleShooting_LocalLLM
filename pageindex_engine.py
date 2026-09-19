@@ -107,9 +107,15 @@ def _parse_node_list(raw: str) -> list[str]:
 def _flat_nodes() -> list[dict]:
     """Kompakte Knotenliste {node_id, title, summary} (Summary gekürzt)."""
     out = []
+    from manual_context import get_groups, group_for_text
+    groups = get_groups()
     for nid, n in _node_map.items():
         summary = (n.get("summary") or n.get("title") or "").strip().replace("\n", " ")
-        out.append({"node_id": str(nid), "title": (n.get("title") or "").strip()[:80],
+        title = (n.get("title") or "").strip()
+        group_id = group_for_text(n.get('text', ''), groups)
+        if group_id:
+            title = groups[group_id]['title'] + ' / ' + title
+        out.append({"node_id": str(nid), "title": title[:150],
                     "summary": summary[:SUMMARY_CHARS]})
     return out
 
@@ -156,6 +162,28 @@ def nav_token_estimate(query: str) -> int:
 def retrieve_context(query: str, complete=None) -> tuple[str, list[dict]]:
     """Gibt (Kontext-Text, gewählte Knoten) für die Antwortgenerierung zurück."""
     nodes = search(query, complete=complete)
+    from manual_context import expand_sources
+    expanded = expand_sources([dict(n, id=n['node_id'], section=n.get('title', '')) for n in nodes])
+    nodes = [dict(n, node_id=n['id'], title=n['section']) for n in expanded]
+    # Whole sections can be much larger than vector chunks. Pack complete nodes
+    # within the answer budget and return only evidence actually sent to the LLM.
+    from rag_engine import extract_error_codes
+    asked = extract_error_codes(query)
+    if asked:
+        nodes = sorted(nodes, key=lambda n: len(asked & extract_error_codes(n.get("text", ""))), reverse=True)
+    budget = int(os.getenv("CONTEXT_MAX_CHARS", "14000"))
+    selected, used = [], 0
+    for node in nodes:
+        text = node.get("text", "")
+        if not text.strip():
+            continue
+        cost = len(text) + (2 if selected else 0)
+        if used + cost <= budget:
+            selected.append(node)
+            used += cost
+    if nodes and not selected:
+        raise ValueError("Kein vollstaendiger PageIndex-Abschnitt passt in das Kontextbudget.")
+    nodes = selected
     context = "\n\n".join(n.get("text", "") for n in nodes if n.get("text"))
     return context, nodes
 

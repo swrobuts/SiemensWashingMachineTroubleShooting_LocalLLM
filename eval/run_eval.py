@@ -111,6 +111,8 @@ def run(retrieve_k: int, final_k: int, use_rerank: bool, *, vector_only=False, o
     print("=" * 50)
     report = {"metric_note":"Keyword-based retrieval proxy, not answer correctness or judged document recall.",
               "embedding":embed_model,"rerank":use_rerank,"vector_only":vector_only,
+              "parser_version":rag_engine.PARSER_VERSION,
+              "evaluation_stage":"candidate_top_k_before_answer_context_filter_and_expansion",
               "retrieve_k":retrieve_k,"final_k":final_k,"questions":n,
               "keyword_hit_rate":hits/n,"keyword_hit_at_1":hits_at_1/n,
               "keyword_mrr":sum(rrs)/n,"keyword_coverage":sum(recalls)/n,

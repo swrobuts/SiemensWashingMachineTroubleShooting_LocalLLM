@@ -6,6 +6,7 @@ compute_cache_key hier ohne installiertes LlamaIndex testen.
 from __future__ import annotations
 
 import sys
+import pytest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -125,6 +126,16 @@ def test_top_relevance_handles_missing():
     assert rag_engine.top_relevance([_ScoredNode(0.7)]) == 0.7
 
 
+def test_answer_context_drops_weak_cross_topic_hits():
+    scores = [_ScoredNode(s) for s in [.84, .65, .38, .20, .02]]
+    assert [n.score for n in rag_engine.select_context_nodes(scores)] == [.84, .65]
+
+
+def test_answer_context_retains_close_relevant_hits_and_rejects_low_scores():
+    assert len(rag_engine.select_context_nodes([_ScoredNode(.20), _ScoredNode(.16)])) == 2
+    assert rag_engine.select_context_nodes([_ScoredNode(.14), _ScoredNode(None)]) == []
+
+
 def test_code_boundaries():
     assert rag_engine.extract_error_codes('E:18') != rag_engine.extract_error_codes('E:180')
     assert rag_engine.extract_error_codes('e : 18') == {'E:18','E18'}
@@ -176,3 +187,34 @@ def test_true_page_provenance(tmp_path):
     from llama_index.core.schema import NodeWithScore
     ref=rag_engine.format_source_reference([NodeWithScore(node=nodes[0],score=1)])
     assert 'PDF-Seite 4' in ref and '36' not in ref
+
+
+@pytest.mark.parametrize('cache_state', ['hit', 'missing', 'corrupt'])
+def test_index_start_with_legacy_windows_stdout(tmp_path, monkeypatch, cache_state):
+    """Index startup must not depend on stdout supporting Unicode emojis."""
+    import io
+    from types import SimpleNamespace as NS
+    import llama_index.core as core
+
+    md = _write(tmp_path, '## Hinweise\nE:23 Wasserhahn schliessen.')
+    persist = tmp_path / 'index'
+    persist.mkdir()
+    key = rag_engine.compute_cache_key(md, 'test-model')
+    if cache_state != 'missing':
+        (persist / '.cache_key').write_text(key, encoding='utf-8')
+    embed = NS(_model=NS(max_seq_length=512, tokenizer=NS(encode=lambda *_a, **_k: [1])))
+    index = NS(storage_context=NS(persist=lambda **_: None))
+    def load(*args, **kwargs):
+        if cache_state == 'corrupt':
+            raise ValueError('incomplete test cache')
+        return index
+    monkeypatch.setattr(rag_engine, 'get_embed_model', lambda _: embed)
+    monkeypatch.setattr(rag_engine, 'prepare_nodes', lambda *_a, **_k: ['test node'])
+    monkeypatch.setattr(core, 'Settings', NS())
+    monkeypatch.setattr(core, 'StorageContext', NS(from_defaults=lambda **_: NS()))
+    monkeypatch.setattr(core, 'load_index_from_storage', load)
+    monkeypatch.setattr(core, 'VectorStoreIndex', lambda *_a, **_k: index)
+    monkeypatch.setattr(sys, 'stdout', io.TextIOWrapper(io.BytesIO(), encoding='cp1252', errors='strict'))
+
+    assert rag_engine.build_or_load_index(md, persist, 'test-model') is index
+    assert (persist / '.cache_key').read_text(encoding='utf-8') == key

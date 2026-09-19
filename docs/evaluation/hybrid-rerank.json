@@ -3,14 +3,16 @@
   "embedding": "intfloat/multilingual-e5-small",
   "rerank": true,
   "vector_only": false,
+  "parser_version": "md-v5-procedure-context",
+  "evaluation_stage": "candidate_top_k_before_answer_context_filter_and_expansion",
   "retrieve_k": 12,
   "final_k": 5,
   "questions": 10,
   "keyword_hit_rate": 1.0,
-  "keyword_hit_at_1": 0.9,
-  "keyword_mrr": 0.95,
-  "keyword_coverage": 0.9099999999999999,
-  "query_seconds": 89.52829220000422,
+  "keyword_hit_at_1": 1.0,
+  "keyword_mrr": 1.0,
+  "keyword_coverage": 0.9349999999999999,
+  "query_seconds": 90.8806792999967,
   "results": [
     {
       "id": "wasser-austritt",
@@ -21,10 +23,10 @@
         "zulaufschlauch"
       ],
       "keyword_coverage": 0.6,
-      "reciprocal_rank": 0.5,
-      "top_score": 0.7888712882995605,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.5539084076881409,
       "grounded": true,
-      "top_text": "## Achtung! Wasserschäden\n\nAuslaufendes Wasser kann zu Wasserschäden führen.\n\nÖffnen Sie nicht das Einfüllfenster, sofern Wasser am Glas zu sehen ist.\n\n1. Gerät ausschalten. Netzstecker ziehen.\n2. Waschlauge ablassen . ~ Seite 30\n3. Notentriegelung mit einem Werkzeug nach unten ziehen und loslassen. Einfüllfenster lässt sich anschließend öffnen.\n\n<!-- image -->"
+      "top_text": "## Störungen, was tun?\nStörungen: Wasser läuft aus.; Ursache/Abhilfe: ■ Ablaufschlauch richtig befestigen/ersetzen. ■ Verschraubung des Zulaufschlauchs festziehen."
     },
     {
       "id": "fehler-e18",
@@ -76,9 +78,10 @@
       "question": "Es läuft kein Wasser in die Maschine ein.",
       "matched_keywords": [
         "sieb",
-        "wasserhahn"
+        "wasserhahn",
+        "zulaufschlauch"
       ],
-      "keyword_coverage": 0.5,
+      "keyword_coverage": 0.75,
       "reciprocal_rank": 1.0,
       "top_score": 0.11939877271652222,
       "grounded": false,
