@@ -2,6 +2,8 @@
 
 Ergänzung: [Mac-Live-Prüfung und Cache-/Anzeige-Korrekturen](evaluation/MAC-LIVE.md).
 
+Zusätzliche Prüfung: [Umgangssprache und Tippfehler mit LLM-Suchumformulierung](evaluation/QUERY-REWRITE-LIVE.md).
+
 ## Umfang und Ausgangslage
 
 Geprüft wurde das vorhandene Repository

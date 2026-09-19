@@ -84,6 +84,27 @@ Filter ist über CONTEXT_SCORE_RATIO konfigurierbar und ebenfalls eine Heuristik
 Ohne Reranker akzeptiert der konservative Fallback nur exakte Fehlercodes.
 Ein unbekannter gefragter Code darf keine fremde Codebedeutung übernehmen.
 
+### LLM-Umformulierung bei erfolgloser Suche
+
+Bei einer unbelegten Hybrid-Suche ohne expliziten Fehlercode nutzt `server.py`
+höchstens einen zusätzlichen Aufruf des gewählten Antwortanbieters.
+`query_rewrite.py` fordert eine kurze Suchfrage an: Tippfehler korrigieren,
+Umgangssprache vereinheitlichen, keine Diagnose oder Lösung hinzufügen.
+Fachfremde Fragen sollen `null` ergeben. Der Parser akzeptiert JSON und einen
+umschließenden JSON-Codeblock, begrenzt die Länge und verwirft hinzugefügte
+Fehlercodes oder veränderte Zahlen. Eine misslungene Umformulierung führt zur
+ursprünglichen Ablehnung, nicht zu einer ungestützten Antwort.
+
+Die neue Suchfrage durchläuft denselben Retriever, Reranker und Relevanzfilter.
+Die Generierung erhält weiterhin die Originalfrage. Bei Erfolg zeigt das Feld
+`search_query` im JSON-/SSE-Ergebnis die verwendete Suchformulierung in der GUI.
+Es gibt keine rekursive Suche. Gute Ersttreffer und Fragen mit Fehlercodes
+lösen keinen Umformulierungsaufruf aus. Bei OpenAI gilt der Sitzungsschlüssel
+nur für diesen Anfrage-Client; der Client wird anschließend geschlossen.
+Zusätzliche Suchaufrufe verursachen Laufzeit und gegebenenfalls API-Kosten;
+die angezeigten Tokenzahlen umfassen weiterhin nur die Antwortgenerierung.
+Die Sinnwahrung der Umformulierung ist eine LLM-Leistung, keine formale Garantie.
+
 ### Zusammenhang von Arbeitsanleitungen
 
 Die flache OCR-Struktur trennt bei der Pumpenreinigung den Warnhinweis von den

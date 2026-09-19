@@ -74,6 +74,7 @@ class Backend:
             return self._llms[provider]
 
     def retrieve(self, question, mode, provider=None, api_key=None):
+        provider = provider or os.getenv("LLM_PROVIDER", "local")
         if mode == "pageindex":
             llm = self.llm(provider, api_key)
             try:
@@ -87,6 +88,28 @@ class Backend:
             sources = [{"id":n["node_id"], "section":n.get("title", ""), "text":n.get("text", "")}
                        for n in nodes]
             return Retrieval(ctx, grounded, pageindex_engine.format_source_reference(nodes), sources)
+        retrieval = self._retrieve_hybrid(question)
+        # Exact error codes must never be "corrected" into a different fault.
+        if retrieval.grounded or rag_engine.extract_error_codes(question):
+            return retrieval
+        from query_rewrite import rewrite_query
+        llm = None
+        try:
+            llm = self.llm(provider, api_key)
+            query = rewrite_query(question, llm.complete)
+        except Exception as exc:
+            logging.getLogger(__name__).warning("Suchumformulierung fehlgeschlagen (%s)", type(exc).__name__)
+            return retrieval
+        finally:
+            if llm is not None and provider == "openai":
+                llm.client.close()
+        if not query:
+            return retrieval
+        retry = self._retrieve_hybrid(query)
+        return Retrieval(retry.context, retry.grounded, retry.reference, retry.sources,
+                         query if retry.grounded else None)
+
+    def _retrieve_hybrid(self, question):
         with self._lock:
             if self._retriever is None:
                 index = rag_engine.build_or_load_index()
@@ -138,6 +161,7 @@ class Retrieval:
     grounded: bool
     reference: str
     sources: list
+    search_query: str | None = None
 
     def __iter__(self):
         return iter((self.context, self.grounded, self.reference))
@@ -300,7 +324,8 @@ def create_app(backend=None):
             if getattr(response.choices[0], "finish_reason", None) == "length":
                 raise ValueError("Antwort am Tokenlimit abgeschnitten")
             payload = _payload(response.choices[0].message.content or "", reference)
-            payload.update(provider=provider, sources=getattr(retrieval, "sources", []))
+            payload.update(provider=provider, sources=getattr(retrieval, "sources", []),
+                           search_query=getattr(retrieval, "search_query", None))
             return jsonify(payload)
         except Exception as exc:
             app.logger.error("RAG-Anfrage fehlgeschlagen (%s)", type(exc).__name__)
@@ -338,7 +363,8 @@ def create_app(backend=None):
                                 parts.append(delta)
                                 yield _sse("token", delta)
                     payload = _payload("".join(parts), reference)
-                    payload.update(provider=provider, sources=getattr(retrieval, "sources", []))
+                    payload.update(provider=provider, sources=getattr(retrieval, "sources", []),
+                                   search_query=getattr(retrieval, "search_query", None))
                     payload["usage"] = usage
                     yield _sse("result", payload)
             except Exception as exc:

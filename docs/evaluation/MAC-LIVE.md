@@ -1,5 +1,8 @@
 # Ergänzende Mac-Prüfung am 19.09.2026
 
+Nachtrag: Die unten beschriebene Grenze bei Umgangssprache wurde inzwischen
+durch [LLM-Suchumformulierung](QUERY-REWRITE-LIVE.md) verbessert.
+
 Ausgangscommit: `700431f`. Geprüft wurden der gemeldete Browserfehler, die
 Retrieval-/Anbieteranbindung, die Antwortanzeige und die mobile Übertragung.
 Dies ist eine gezielte Bugprüfung mit Live-Stichproben, kein Nachweis allgemeiner

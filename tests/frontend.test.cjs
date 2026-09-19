@@ -48,3 +48,10 @@ test('a full answer retains the detailed steps instead of the summary fallback',
     assert.match(card, /type="checkbox"/);
     assert.doesNotMatch(card, /Kurze Zusammenfassung/);
 });
+
+test('the reformulated search is visible as text alongside the original answer', () => {
+    const {context, elements} = frontend();
+    context.renderResults({tts_summary: 'Wasser läuft aus', search_query: 'Wasser <läuft> aus',
+        results: [{title: 'Handbuch', content: 'Ablaufschlauch prüfen.', sourceType: 'manual'}]}, '', 'Wasser schießt aus der Maxchine');
+    assert.match(elements.get('results-list').children[0].textContent || '', /Wasser <läuft> aus/);
+});

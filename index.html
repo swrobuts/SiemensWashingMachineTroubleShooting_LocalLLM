@@ -676,7 +676,7 @@
               <div><dt>Kandidaten</dt><dd>Kosinusähnlichkeit liefert Top 12. Normalisierte Fehlercodes ergänzen exakte Treffer; doppelte Nodes entfallen.</dd></div>
               <div><dt>Reranking</dt><dd><code>bge-reranker-v2-m3</code> bewertet Frage und Passage gemeinsam. Explizite Sigmoid-Abbildung; anschließend Top 5.</dd></div>
               <div><dt>Freigabe</dt><dd>Kontexttreffer: Score ≥ max(0,15; 0,5 × bester Score). Ein gefragter Fehlercode muss im verbleibenden Kontext vorkommen. Ohne Reranker akzeptiert der Fallback nur exakte Codes.</dd></div>
-              <div><dt>LLM-Aufrufe</dt><dd>Keine in der Suche. Bei ausreichendem Kontext folgt die Antwortgenerierung.</dd></div>
+              <div><dt>LLM-Aufrufe</dt><dd>Bei erfolgloser Suche ohne Fehlercode höchstens eine LLM-Umformulierung und erneute Suche. Bei ausreichendem Kontext folgt die Antwortgenerierung.</dd></div>
             </dl>
           </section>
           <section><p class="method-label experimental">EXPERIMENTELL · PAGEINDEX</p><h4>LLM-gestützte Abschnittsauswahl</h4>
@@ -850,7 +850,7 @@
     function showUsage(u) {
         const el = document.getElementById('usageLine');
         if (!el) return;
-        el.textContent = u ? `Gemessene Antwort-Tokens: Eingabe ${u.answer_in}, Ausgabe ${u.answer_out}. PageIndex-Suche separat, hier nicht enthalten.` : 'Tokenverbrauch vom Modellserver nicht gemeldet.';
+        el.textContent = u ? `Gemessene Antwort-Tokens: Eingabe ${u.answer_in}, Ausgabe ${u.answer_out}. Zusätzliche Suchaufrufe (PageIndex / Umformulierung) sind hier nicht enthalten.` : 'Tokenverbrauch vom Modellserver nicht gemeldet.';
     }
 
     function renderAnalysis() { analysisRendered = true; }
@@ -932,6 +932,11 @@
         const followupContainer = document.getElementById('followup-container');
 
         resultsList.innerHTML = '';
+        if (data.search_query) {
+            const note = document.createElement('p');
+            note.textContent = 'Gesucht nach: ' + data.search_query;
+            resultsList.appendChild(note);
+        }
         currentGuide = AnswerGuide.fromResponse(data, question);
         currentTtsText = AnswerGuide.speechText(currentGuide);
         document.querySelector('.qr-wrapper').hidden = !currentGuide.steps.length;

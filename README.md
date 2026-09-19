@@ -98,6 +98,13 @@ Lokale Konfigurationsdateien bleiben durch Git ignoriert. OpenAI-Schlüssel werd
 - **PageIndex (experimentell):** Das gewählte LLM sucht IDs in Listen von
   Abschnittstiteln und Zusammenfassungen. Zusätzliche LLM-Aufrufe können
   langsamer und bei OpenAI kostenpflichtig sein.
+- Bei erfolgloser Hybrid-Suche ohne Fehlercode formuliert das gewählte LLM die
+  Frage einmal für die Suche um (Tippfehler und Umgangssprache). Danach gelten
+  dieselben Relevanzprüfungen. Die Oberfläche zeigt die verwendete Suchformulierung.
+  Die ursprüngliche Frage bleibt Grundlage der Antwort. Dieser zusätzliche
+  Modellaufruf benötigt Zeit und bei OpenAI API-Kosten; er ist nicht in den
+  angezeigten Antwort-Tokens enthalten. Fachfremde oder weiterhin unbelegte
+  Fragen werden abgelehnt. Explizite Fehlercodes werden nicht umformuliert.
 - Ein gemeinsamer Prompt begrenzt Antworten auf Handbuchauszüge.
 - Unbekannte Fehlercodes und zu schwache Hybrid-Treffer führen zur Ablehnung.
 - Die Oberfläche zeigt die Antwort sowie aufklappbare Originalauszüge.
