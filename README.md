@@ -40,7 +40,11 @@ py -3.12 -m venv .venv
 
 Danach **http://127.0.0.1:3001** öffnen. Die HTML-Datei nicht direkt öffnen.
 Der erste Suchlauf lädt Modelle und erstellt den Index. Weitere Anfragen
-verwenden den Cache.
+verwenden den Cache. Modellgewichte liegen im benutzereigenen Hugging-Face-Cache
+(standardmäßig `~/.cache/huggingface/hub`, konfigurierbar über `HF_HOME` oder
+`HF_HUB_CACHE`). Diesen Cache und die Python-Umgebung nicht über OneDrive zwischen
+Windows und macOS synchronisieren. Eine vorhandene Windows-`.venv` funktioniert
+auf dem Mac nicht; dort eine eigene Python-3.12-Umgebung anlegen.
 
 ### Lokales Modell auf dem Mac
 
@@ -137,7 +141,7 @@ die laufende App den gemeinsamen OpenAI-SDK-Client.
 ## Dokumentation
 
 - [PowerPoint-Foliensatz](docs/slides/RAG_Waschmaschine_Dokumentation.pptx):
-  58 Folien im weißen THWS-Stil mit Theorie, technischen Diagrammen, Betrieb,
+  60 Folien im weißen THWS-Stil mit Theorie, technischen Diagrammen, Betrieb,
   aktuellen Prüfresultaten, Vorlesen und grafischer QR-Anleitung für das Handy.
 - [Technische Dokumentation](docs/TECHNICAL.md): Datenfluss, Konfiguration und Grenzen.
 - [Prüfbericht](docs/AUDIT.md) und [Messprotokolle](docs/evaluation/).
@@ -148,14 +152,15 @@ die laufende App den gemeinsamen OpenAI-SDK-Client.
 Die ältere DOCX-Datei und der Optimierungsentwurf vom Juli 2026 sind historische
 Unterlagen. Für die aktuelle Anwendung gelten die oben verlinkten Markdown-
 Dokumente und die PPTX unter `docs/slides/`. Die gleichnamige PPTX im
-Projektstamm ist eine identische Kopie. Die zusätzlich vorhandenen Dateien
+Projektstamm ist ein älterer Export; die aktuelle Fassung liegt unter `docs/slides/`.
+Die zusätzlich vorhandenen Dateien
 `RAG_Waschmaschine_Dokumentation_THWS.pptx` und `.pdf` wurden unverändert
 übernommen; diese 54-seitige Gestaltungsvariante basiert auf dem Stand vor den
 abschließenden Live-Korrekturen und ist nicht der aktuelle Prüfstand.
 
 Die Anwendung ist eine lokale Lehr- und Demoanwendung. Der voreingestellte
-Flask-Server lauscht nur auf dem eigenen Rechner. Der tatsächliche Mac mit
-LM Studio muss separat praktisch geprüft werden. Modellantworten ersetzen
+Flask-Server lauscht nur auf dem eigenen Rechner. Ein Live-Test auf dem Mac mit LM Studio und OpenAI ist im
+[Mac-Prüfprotokoll](docs/evaluation/MAC-LIVE.md) dokumentiert. Modellantworten ersetzen
 keine Sicherheits- und Kundendiensthinweise des Originalhandbuchs.
 
 
@@ -177,4 +182,4 @@ kann die vollständige Anleitung als HTML-Datei gespeichert und auf das Handy
 in der Originalanleitung. Ein echter Scan- und Audiotest auf dem eigenen Handy
 bleibt vom jeweiligen Gerät und Browser abhängig.
 
-Frontend-Tests: `node --test tests/guide.test.cjs`.
+Frontend-Tests: `node --test tests/*.test.cjs`.

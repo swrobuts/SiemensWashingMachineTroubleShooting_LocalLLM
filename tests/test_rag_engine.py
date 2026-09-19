@@ -218,3 +218,25 @@ def test_index_start_with_legacy_windows_stdout(tmp_path, monkeypatch, cache_sta
 
     assert rag_engine.build_or_load_index(md, persist, 'test-model') is index
     assert (persist / '.cache_key').read_text(encoding='utf-8') == key
+
+
+def test_embedding_ignores_damaged_project_cache(tmp_path, monkeypatch):
+    """Cloud-synced snapshot placeholders must not override the HF user cache."""
+    import json
+    import llama_index.embeddings.huggingface as hf
+    project = tmp_path / 'OneDrive' / 'project'
+    broken = project / '.cache' / 'embeddings'
+    broken.mkdir(parents=True)
+    (broken / 'modules.json').write_text('')
+    user_cache = tmp_path / 'user-cache'
+    user_cache.mkdir()
+    (user_cache / 'modules.json').write_text('[{"name": "valid-model"}]')
+    monkeypatch.setattr(rag_engine, 'ROOT', project)
+    import huggingface_hub.constants
+    monkeypatch.setattr(huggingface_hub.constants, 'HF_HUB_CACHE', str(user_cache))
+    def load_model(**kwargs):
+        # Model loading is the external boundary; use a tiny snapshot fixture.
+        cache = Path(kwargs.get('cache_folder') or user_cache)
+        return json.loads((cache / 'modules.json').read_text())
+    monkeypatch.setattr(hf, 'HuggingFaceEmbedding', load_model)
+    assert rag_engine.get_embed_model() == [{'name': 'valid-model'}]

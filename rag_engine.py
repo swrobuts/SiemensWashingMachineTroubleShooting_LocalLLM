@@ -149,8 +149,11 @@ def get_embed_model(model_name: str = DEFAULT_EMBED_MODEL):
     größte Retrieval-Bug der Ausgangsversion.
     """
     from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+    from huggingface_hub.constants import HF_HUB_CACHE
 
-    kwargs: dict = {"model_name": model_name, "cache_folder": str(ROOT / ".cache" / "embeddings")}
+    # Keep machine-local model snapshots out of cloud-synced project folders.
+    # Use the same HF_HOME/HF_HUB_CACHE configuration as the reranker.
+    kwargs: dict = {"model_name": model_name, "cache_folder": HF_HUB_CACHE}
     if _needs_e5_prefix(model_name):
         kwargs["query_instruction"] = "query: "
         kwargs["text_instruction"] = "passage: "

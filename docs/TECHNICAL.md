@@ -111,7 +111,11 @@ oder Neo4j-Anbindung. Der Suchindex wird im App-Prozess geladen.
 Ein SHA-256-Fingerprint bindet den Cache an Markdown-Inhalt, Modellname,
 Parser-Version, Chunkgröße, Überlappung und Präfixlogik. FileLock verhindert
 gleichzeitigen Indexaufbau durch mehrere Prozesse. Defekte bzw. veraltete Caches
-werden neu aufgebaut. Das Modell wird in `.cache/embeddings` gespeichert.
+werden neu aufgebaut. Modelle werden im benutzereigenen Hugging-Face-Cache
+gespeichert (standardmäßig `~/.cache/huggingface/hub`, über `HF_HOME` bzw.
+`HF_HUB_CACHE` konfigurierbar). Modell-Caches und Python-Umgebungen gehören nicht
+in einen zwischen Betriebssystemen synchronisierten OneDrive-Ordner:
+Snapshot-Symlinks können dabei zu leeren Dateien werden.
 
 Alternativen für mehr Dokumente: PostgreSQL mit
 [pgvector](https://github.com/pgvector/pgvector) kombiniert relationale Daten

@@ -1,0 +1,162 @@
+{
+  "metric_note": "Keyword-based retrieval proxy, not answer correctness or judged document recall.",
+  "embedding": "intfloat/multilingual-e5-small",
+  "rerank": true,
+  "vector_only": false,
+  "parser_version": "md-v5-procedure-context",
+  "evaluation_stage": "candidate_top_k_before_answer_context_filter_and_expansion",
+  "retrieve_k": 12,
+  "final_k": 5,
+  "questions": 10,
+  "keyword_hit_rate": 1.0,
+  "keyword_hit_at_1": 1.0,
+  "keyword_mrr": 1.0,
+  "keyword_coverage": 0.9349999999999999,
+  "query_seconds": 5.823125209193677,
+  "results": [
+    {
+      "id": "wasser-austritt",
+      "question": "Wasser läuft unter meiner Waschmaschine aus, was kann ich tun?",
+      "matched_keywords": [
+        "ablaufschlauch",
+        "verschraubung",
+        "zulaufschlauch"
+      ],
+      "keyword_coverage": 0.6,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.5539079904556274,
+      "grounded": true,
+      "top_text": "## Störungen, was tun?\nStörungen: Wasser läuft aus.; Ursache/Abhilfe: ■ Ablaufschlauch richtig befestigen/ersetzen. ■ Verschraubung des Zulaufschlauchs festziehen."
+    },
+    {
+      "id": "fehler-e18",
+      "question": "Was bedeutet der Fehlercode E:18?",
+      "matched_keywords": [
+        "abflussrohr",
+        "ablaufschlauch",
+        "laugenpumpe",
+        "verstopft"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.5619800090789795,
+      "grounded": true,
+      "top_text": "## Hinweise im Anzeigefeld\nAnzeige: E:18; Ursache/Abhilfe: ■ Laugenpumpe verstopft. Laugenpumpe reinigen. ~ Seite 30 ■ Ablaufschlauch/Abflussrohr verstopft. Ablaufschlauch am Siphon reinigen. ~ Seite 31"
+    },
+    {
+      "id": "fehler-e23",
+      "question": "Meine Maschine zeigt E:23 an. Was ist das Problem?",
+      "matched_keywords": [
+        "bodenwanne",
+        "kundendienst",
+        "undichtigkeit",
+        "wasserhahn"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6627917885780334,
+      "grounded": true,
+      "top_text": "## Hinweise im Anzeigefeld\nAnzeige: E:23; Ursache/Abhilfe: Wasser in der Bodenwanne, Geräte-Undichtigkeit. Wasserhahn schließen. Kundendienst rufen! ~ Seite 36"
+    },
+    {
+      "id": "kein-abpumpen",
+      "question": "Die Waschlauge wird nicht abgepumpt.",
+      "matched_keywords": [
+        "abflussrohr",
+        "ablaufschlauch",
+        "laugenpumpe",
+        "spülstopp"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.9820945858955383,
+      "grounded": true,
+      "top_text": "## Störungen, was tun?\nStörungen: Waschlauge wird nicht abgepumpt.; Ursache/Abhilfe: ■ $ (Spülstopp = ohne Endschleudern) gewählt? ~ Seite 27 ■ Laugenpumpe reinigen. ~ Seite 30 ■ Abflussrohr und/oder Ablaufschlauch reinigen."
+    },
+    {
+      "id": "kein-wassereinlauf",
+      "question": "Es läuft kein Wasser in die Maschine ein.",
+      "matched_keywords": [
+        "sieb",
+        "wasserhahn",
+        "zulaufschlauch"
+      ],
+      "keyword_coverage": 0.75,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.11939694732427597,
+      "grounded": false,
+      "top_text": "## Sieb im Wasserzulauf verstopft"
+    },
+    {
+      "id": "tuer-oeffnet-nicht",
+      "question": "Das Einfüllfenster lässt sich nicht öffnen.",
+      "matched_keywords": [
+        "notentriegelung",
+        "sicherheitsfunktion",
+        "spülstopp"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.9833576083183289,
+      "grounded": true,
+      "top_text": "## Störungen, was tun?\nStörungen: Einfüllfenster lässt sich nicht öffnen.; Ursache/Abhilfe: ■ Sicherheitsfunktion aktiv. Programmabbruch? ~ Seite 26 ■ $ (Spülstopp = ohne Endschleudern) gewählt? ~ Seite 27 ■ Öffnen nur über Notentriegelung möglich? ~ Seite 32"
+    },
+    {
+      "id": "programm-startet-nicht",
+      "question": "Das Programm startet einfach nicht.",
+      "matched_keywords": [
+        "einfüllfenster",
+        "kindersicherung",
+        "taste"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.8458922505378723,
+      "grounded": true,
+      "top_text": "## Störungen, was tun?\nStörungen: Programm startet nicht.; Ursache/Abhilfe: ■ Taste Ü oder Fertig in -Zeit gewählt? ■ Einfüllfenster geschlossen? ■ w Kindersicherung aktiviert? Deaktivieren. ~ Seite 26"
+    },
+    {
+      "id": "zu-viel-schaum",
+      "question": "Es bildet sich viel zu viel Schaum in der Maschine.",
+      "matched_keywords": [
+        "dosieren",
+        "schaum",
+        "spülgänge",
+        "waschmittel"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6015053391456604,
+      "grounded": true,
+      "top_text": "## Hinweise im Anzeigefeld\nAnzeige: o leuchtet; Ursache/Abhilfe: Zu viel Schaum erkannt, zusätzliche Spülgänge zugeschaltet. Dosieren Sie beim nächsten Waschgang mit gleicher Beladung weniger Waschmittel."
+    },
+    {
+      "id": "kindersicherung",
+      "question": "Wie schalte ich die Kindersicherung wieder aus?",
+      "matched_keywords": [
+        "deaktivieren",
+        "kindersicherung"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6476670503616333,
+      "grounded": true,
+      "top_text": "## Kindersicherung\n\n( w 3 Sek.)\n\nSie können die Waschmaschine gegen versehentliches Ändern der eingestellten Funktionen sichern. Hierzu die Kindersicherung aktivieren.\n\nZum Aktivieren/Deaktivieren ca. 3 Sekunden lang gleichzeitig die Tasten Fertig in -und + wählen. Im Anzeigefeld erscheint das Symbol w .\n\n- ■ w leuchtet: Die Kindersicherung ist aktiv.\n- ■ w blinkt kurzzeitig: Die Kindersicherung ist aktiv und der Programmwähler wurde gedreht oder ein Taste gedrückt.\n\nHinweis: . Die Kindersicherung bleibt auch nach Ausschalten der Waschmaschine erhalten. Dann vor der nächsten Programmwahl die Kindersicherung deaktivieren."
+    },
+    {
+      "id": "trommel-reinigen",
+      "question": "Wie reinige ich die Trommel meiner Waschmaschine?",
+      "matched_keywords": [
+        "bleichehaltiges",
+        "laugenbehälter",
+        "pulvervollwaschmittel",
+        "trommel reinigen"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.9869415163993835,
+      "grounded": true,
+      "top_text": "## Waschtrommel\n\nChlorfreie Putzmittel benutzen, keine Stahlwolle verwenden.\n\nBei Geruchsbildung in der Waschmaschine bzw. zur Reinigung der Trommel Programm\n\nTrommel Reinigen 90 °C ohne Wäsche durchführen. Dazu Pulvervollwaschmittel verwenden."
+    }
+  ]
+}

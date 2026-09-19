@@ -947,7 +947,7 @@
             const badgeClass = item.sourceType === 'manual' ? 'badge manual' : 'badge internet';
             const sourceLabel = 'Handbuch';
 
-            let formattedContent = escapeHtml(item.content || '');
+            let formattedContent = escapeHtml(item.content || data.tts_summary || '');
             formattedContent = formattedContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             formattedContent = formattedContent.replace(/- \[\s?\] (.*)/g, '<label class="task-checkbox"><input type="checkbox"> <span>$1</span></label>');
 

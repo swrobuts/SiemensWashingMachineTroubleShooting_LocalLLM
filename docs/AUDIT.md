@@ -1,5 +1,7 @@
 # Prüfbericht vom 19.09.2026
 
+Ergänzung: [Mac-Live-Prüfung und Cache-/Anzeige-Korrekturen](evaluation/MAC-LIVE.md).
+
 ## Umfang und Ausgangslage
 
 Geprüft wurde das vorhandene Repository
