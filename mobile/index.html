@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Waschmaschinen-Anleitung</title>
+  <script src="guide.js" defer></script>
+  <script src="speech.js" defer></script>
+  <script src="viewer.js" defer></script>
+  <style>body{font:17px/1.6 system-ui,sans-serif;color:#18323c;background:#f5f8f8}main{max-width:760px;margin:auto;padding:32px 20px}button{font:inherit;padding:10px 16px}#content:empty{display:none}</style>
+</head>
+<body><main>
+  <div id="welcome"><p>WASCHMASCHINEN-ASSISTENT</p><h1>Ihre Anleitung auf dem Handy</h1><p>Erstellen Sie in der lokalen Anwendung eine Antwort und wählen Sie „Antwort aufs Handy“. Scannen Sie den QR-Code, um die Schritte hier zu öffnen.</p><p>Die Antwort steht im QR-Link. Diese Leseseite führt keine KI-Anfrage aus und benötigt keinen API-Schlüssel.</p></div>
+  <div id="content"></div>
+  <div class="actions" id="actions" hidden><button id="speak" aria-pressed="false">Vorlesen</button><button id="save">Offline speichern</button><button id="print">Drucken</button></div>
+  <p id="status" role="status" aria-live="polite"></p>
+  <p class="note">Die Leseseite lädt keine Analyse- oder Werbedienste. Der Inhalt nach dem #-Zeichen wird beim Seitenabruf nicht an den Webserver übertragen. Jeder mit diesem Link kann die Anleitung lesen. Die Fortschrittsmarkierungen bleiben nur bis zum Neuladen erhalten.</p>
+</main></body>
+</html>
