@@ -137,7 +137,8 @@ die laufende App den gemeinsamen OpenAI-SDK-Client.
 ## Dokumentation
 
 - [PowerPoint-Foliensatz](docs/slides/RAG_Waschmaschine_Dokumentation.pptx):
-  39 Folien im weißen Stil, Theorie, technische Diagramme, Betrieb und Prüfresultate.
+  58 Folien im weißen THWS-Stil mit Theorie, technischen Diagrammen, Betrieb,
+  aktuellen Prüfresultaten, Vorlesen und grafischer QR-Anleitung für das Handy.
 - [Technische Dokumentation](docs/TECHNICAL.md): Datenfluss, Konfiguration und Grenzen.
 - [Prüfbericht](docs/AUDIT.md) und [Messprotokolle](docs/evaluation/).
 - [Notebook](notebooks/document_processing_pipeline.ipynb):
