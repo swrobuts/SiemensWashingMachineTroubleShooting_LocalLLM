@@ -155,6 +155,8 @@ die laufende App den gemeinsamen OpenAI-SDK-Client.
 - [Notebook](notebooks/document_processing_pipeline.ipynb):
   reproduzierbarer Einstieg über dieselben Projektfunktionen.
 - [PageIndex-Herkunft und Lizenz](pageindex/VENDOR.md).
+- [RAG-Lab](https://swrobuts.github.io/RAG-Lab/): interaktive Lernumgebung, die diesen
+  Assistenten in zehn Labs erklärt (siehe unten).
 
 Die ältere DOCX-Datei und der Optimierungsentwurf vom Juli 2026 sind historische
 Unterlagen. Für die aktuelle Anwendung gelten die oben verlinkten Markdown-
@@ -190,3 +192,16 @@ in der Originalanleitung. Ein echter Scan- und Audiotest auf dem eigenen Handy
 bleibt vom jeweiligen Gerät und Browser abhängig.
 
 Frontend-Tests: `node --test tests/*.test.cjs`.
+
+## Lernumgebung RAG-Lab
+
+Zu diesem Fallbeispiel gehört die Lernumgebung
+**[RAG-Lab](https://swrobuts.github.io/RAG-Lab/)**
+([Repository](https://github.com/swrobuts/RAG-Lab)). Zehn Labs führen von Token und
+Vektor über Chunking, Embeddings, Retrieval, Reranking und Generierung bis zu Evaluation,
+Architektur und dem Nachbau dieses Assistenten – mit 55 Übungen, die sofort Rückmeldung
+geben, und 16 Werkzeugen, die im Browser laufen: Das Embedding-Modell
+`multilingual-e5-small` rechnet per transformers.js in der Seite, ein nachgebildetes
+Terminal (zsh und PowerShell) übt die Inbetriebnahme aus dem Abschnitt „Start“. Jede Zahl
+in den Labs stammt aus den Messprotokollen dieses Projekts. Deutsch und Englisch, ohne
+Anmeldung und ohne Installation.
