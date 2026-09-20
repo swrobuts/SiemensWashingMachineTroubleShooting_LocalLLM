@@ -150,9 +150,6 @@ misst den Modus mit denselben zehn Fragen.
 
 ## Dokumentation
 
-- [PowerPoint-Foliensatz](docs/slides/RAG_Waschmaschine_Dokumentation.pptx):
-  60 Folien im weißen THWS-Stil mit Theorie, technischen Diagrammen, Betrieb,
-  aktuellen Prüfresultaten, Vorlesen und grafischer QR-Anleitung für das Handy.
 - [Technische Dokumentation](docs/TECHNICAL.md): Datenfluss, Konfiguration und Grenzen.
 - [Prüfbericht](docs/AUDIT.md) und [Messprotokolle](docs/evaluation/).
 - [Notebook](notebooks/document_processing_pipeline.ipynb):
@@ -163,12 +160,11 @@ misst den Modus mit denselben zehn Fragen.
 
 Die ältere DOCX-Datei und der Optimierungsentwurf vom Juli 2026 sind historische
 Unterlagen. Für die aktuelle Anwendung gelten die oben verlinkten Markdown-
-Dokumente und die PPTX unter `docs/slides/`. Die gleichnamige PPTX im
-Projektstamm ist ein älterer Export; die aktuelle Fassung liegt unter `docs/slides/`.
-Die zusätzlich vorhandenen Dateien
-`RAG_Waschmaschine_Dokumentation_THWS.pptx` und `.pdf` wurden unverändert
-übernommen; diese 54-seitige Gestaltungsvariante basiert auf dem Stand vor den
-abschließenden Live-Korrekturen und ist nicht der aktuelle Prüfstand.
+Dokumente. Der 60-Folien-Satz unter `docs/slides/` wurde am 20.09.2026 aus dem
+Repository entfernt. Die PPTX im Projektstamm ist ein älterer Export; die
+Dateien `RAG_Waschmaschine_Dokumentation_THWS.pptx` und `.pdf` sind eine
+54-seitige Gestaltungsvariante auf dem Stand vor den abschließenden
+Live-Korrekturen und nicht der aktuelle Prüfstand.
 
 Die Anwendung ist eine lokale Lehr- und Demoanwendung. Der voreingestellte
 Flask-Server lauscht nur auf dem eigenen Rechner. Ein Live-Test auf dem Mac mit LM Studio und OpenAI ist im
