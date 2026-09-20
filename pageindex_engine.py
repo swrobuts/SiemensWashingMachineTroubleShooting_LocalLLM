@@ -2,6 +2,10 @@
 
 Die App reicht den gewählten Anbieter (OpenAI oder LM Studio) explizit durch.
 Diese Auswahl implementiert keine vollständige agentische Baum-Tiefensuche.
+
+Fragen mit Fehlercode gehen nicht durch die LLM-Auswahl: Der Code wird
+deterministisch in den Abschnittstexten gesucht (Vorfilter). Nur wenn kein
+Abschnitt den Code enthält, läuft die Auswahl über alle Abschnitte.
 """
 from __future__ import annotations
 
@@ -120,12 +124,39 @@ def _flat_nodes() -> list[dict]:
     return out
 
 
+def code_candidates(query: str) -> list[str] | None:
+    """Deterministischer Vorfilter: IDs der Abschnitte, deren Text einen in der
+    Frage genannten Fehlercode enthält (exakter Code, kein Präfix). None, wenn
+    die Frage keinen Code nennt; leere Liste, wenn kein Abschnitt ihn enthält."""
+    from rag_engine import extract_error_codes
+    asked = extract_error_codes(query)
+    if not asked:
+        return None
+    hits = []
+    for nid, node in _node_map.items():
+        text = node.get("text", "")
+        if not text.strip():
+            continue
+        found = asked & extract_error_codes(text)
+        if found:
+            hits.append((-len(found), nid))
+    return [nid for _, nid in sorted(hits)]
+
+
 def search(query: str, complete=None, max_nodes: int = MAX_NODES) -> list[dict]:
     """Vectorless Retrieval: LLM navigiert die Abschnitte (batch-weise) und wählt
-    die relevanten aus; deren Knoten-Dicts (mit Volltext) werden zurückgegeben."""
+    die relevanten aus; deren Knoten-Dicts (mit Volltext) werden zurückgegeben.
+    Nennt die Frage einen Fehlercode, kommen die Abschnitte mit diesem Code ohne
+    LLM-Aufruf zurück; bei mehr als max_nodes Kandidaten wählt das LLM nur unter ihnen."""
     _ensure_loaded()
     complete = complete or default_complete
     items = _flat_nodes()
+    candidates = code_candidates(query)
+    if candidates:
+        if len(candidates) <= max_nodes:
+            return [_node_map[nid] for nid in candidates]
+        wanted = set(candidates)
+        items = [item for item in items if item["node_id"] in wanted]
     selected: list[str] = []
     for i in range(0, len(items), BATCH):
         batch = items[i:i + BATCH]
@@ -144,9 +175,16 @@ def search(query: str, complete=None, max_nodes: int = MAX_NODES) -> list[dict]:
 
 
 def nav_token_estimate(query: str) -> int:
-    """Schätzt die Navigations-Tokens (Eingabe) ohne LLM-Aufruf — für die UI-Anzeige."""
+    """Schätzt die Navigations-Tokens (Eingabe) ohne LLM-Aufruf — für die UI-Anzeige.
+    Mit Fehlercode-Vorfilter: 0, wenn die Codeabschnitte direkt zurückkommen."""
     _ensure_loaded()
     items = _flat_nodes()
+    candidates = code_candidates(query)
+    if candidates:
+        if len(candidates) <= MAX_NODES:
+            return 0
+        wanted = set(candidates)
+        items = [item for item in items if item["node_id"] in wanted]
     total = 0
     for i in range(0, len(items), BATCH):
         prompt = SEARCH_PROMPT.format(query=query, tree=json.dumps(items[i:i + BATCH], ensure_ascii=False))

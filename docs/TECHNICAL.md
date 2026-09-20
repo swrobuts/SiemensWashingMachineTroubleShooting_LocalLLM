@@ -33,6 +33,7 @@ flowchart LR
 | PDF-Parser | parser.py | Docling-Export mit physischen PDF-Seitenmarkern |
 | PageIndex-Suche | pageindex_engine.py | Batch-Auswahl gültiger Abschnitts-IDs |
 | Baumaufbau | build_pageindex_tree.py | Optionaler vorbereitender LiteLLM-Aufruf |
+| Kurzfassungen | build_pageindex_summaries.py | Deutsche Stichwortzeilen je Abschnitt, lokal via LM Studio |
 
 Der Anbieter wird explizit pro Anfrage weitergereicht. Ein Umschalten verändert
 keine globalen Umgebungsvariablen und keine Anfragen anderer Browser.
@@ -150,9 +151,14 @@ Der vorhandene JSON-Baum enthält 187 Abschnitte mit Titel, Summary und Text.
 Alle 187 Texte wurden gegen das vorhandene Markdown geprüft. Der Quellhash
 verhindert den Einsatz eines Baums zu einer anderen Markdown-Version.
 
-Die App flacht die Abschnittsübersichten ab, fragt das gewählte LLM in Batches
-von 30 und akzeptiert ausschließlich gültige IDs des jeweiligen Batches.
-Bei mehr als fünf Kandidaten folgt eine globale Auswahl. Das vermeidet eine
+Nennt die Frage einen Fehlercode, sucht die App ihn zuerst deterministisch in
+den Abschnittstexten (exakter Code, kein Präfix). Bis zu fünf Treffer kommen
+ohne LLM-Aufruf zurück; bei mehr wählt das LLM nur unter diesen Kandidaten.
+Enthält kein Abschnitt den Code, läuft die Auswahl wie bei freien Fragen.
+
+Freie Fragen: Die App flacht die Abschnittsübersichten ab, fragt das gewählte
+LLM in Batches von 30 und akzeptiert ausschließlich gültige IDs des jeweiligen
+Batches. Bei mehr als fünf Kandidaten folgt eine globale Auswahl. Das vermeidet eine
 rein nach Kapitelposition abgeschnittene Auswahl. Ungültiges JSON wird als
 leere Auswahl behandelt. Die Übersichten enthalten zusätzlich den zugeordneten
 Arbeitskontext. Ausgewählte Teilabschnitte werden ebenfalls zu vollständigen
@@ -161,6 +167,20 @@ Abschnitte in das Kontextbudget ein, bevorzugt exakte gefragte Fehlercodes und
 zeigt ausschließlich die tatsächlich übergebenen Belege. Passt kein ausgewählter
 Abschnitt vollständig hinein, wird ein Fehler ausgelöst; Texte werden nicht
 mitten in einem Warnhinweis abgeschnitten.
+
+Die Übersicht je Abschnitt besteht aus Titel und einer Kurzfassung von höchstens
+160 Zeichen. `build_pageindex_summaries.py` erzeugt sie als deutsche
+Stichwortzeilen (Bauteile, Bedienelemente, Störungsbilder) mit dem lokalen
+Modell; Abschnitte bis 160 Zeichen werden wörtlich übernommen, Fehlercodes
+stehen am Anfang der Zeile. Die früheren englischen Beschreibungen
+("This document provides …") trugen für die Auswahl kaum Information.
+
+Kosten auf dem Mac (gemma-4-12b in LM Studio, 20.09.2026): Die Auswahl liest
+rund 10 000 Tokens je freier Frage in sieben Aufrufen; bei etwa 200 Tokens/s
+Prompt-Verarbeitung sind das rund 50–60 Sekunden vor der Antwort. Die Zeit
+hängt an den Tokens, nicht an der Zahl der Aufrufe. Fragen mit Fehlercode
+brauchen durch den Vorfilter keinen Auswahlaufruf. Messwerte in
+[`docs/evaluation/`](evaluation/README.md).
 
 Die Variante orientiert sich an [PageIndex](https://github.com/VectifyAI/PageIndex),
 implementiert aber keine vollständige agentische Tiefensuche des aktuellen SDK.
@@ -219,6 +239,7 @@ begonnene Retrieval-/Anbieterberechnung kann trotzdem noch Kosten verursachen.
 | CONTEXT_MAX_CHARS | 14000 | Zeichenbudget für Antwortkontext |
 | ANSWER_MAX_TOKENS | 1024 | Maximale Antwortlänge |
 | PAGEINDEX_BATCH / PAGEINDEX_MAX_NODES | 30 / 5 | Abschnittsauswahl |
+| PAGEINDEX_SUMMARY_CHARS | 160 | Kurzfassung je Abschnitt in der Auswahl |
 
 Provider-Profile stehen unter `profiles/local/.env` und `profiles/openai/.env`.
 Das OpenAI-Profil enthält nur Modellkonfiguration. Den API-Key nimmt ausschließlich die lokale Oberfläche entgegen; Dateien und Umgebungsvariablen liefern keinen Web-App-Key. Nach Konfigurationsänderungen den Server

@@ -73,3 +73,41 @@ def test_real_manual_error_tables_fit_together_only_after_packing(monkeypatch):
     context, sources = pe.retrieve_context('Was bedeutet E:23?')
     assert 'E:23' in context and len(context) <= 14000
     assert [n['node_id'] for n in sources] == ['0125']
+
+
+def test_error_code_prefilter_returns_code_sections_without_llm(monkeypatch):
+    monkeypatch.setattr(pe, '_ensure_loaded', lambda: None)
+    monkeypatch.setattr(pe, '_node_map', {'0001': {'node_id': '0001', 'title': 'A', 'text': 'E:180 sonstiges'},
+                                          '0002': {'node_id': '0002', 'title': 'B', 'text': 'E:18 Laugenpumpe'},
+                                          '0003': {'node_id': '0003', 'title': 'C', 'text': 'Trommel reinigen'}})
+    def no_llm(_):
+        raise AssertionError('LLM darf bei Fehlercode-Treffern nicht aufgerufen werden')
+    assert [n['node_id'] for n in pe.search('Was bedeutet E:18?', complete=no_llm)] == ['0002']
+    assert pe.nav_token_estimate('Was bedeutet E:18?') == 0
+
+
+def test_error_code_prefilter_falls_back_to_navigation_when_code_unknown(monkeypatch):
+    monkeypatch.setattr(pe, '_ensure_loaded', lambda: None)
+    monkeypatch.setattr(pe, 'BATCH', 5)
+    monkeypatch.setattr(pe, '_node_map', {'0001': {'node_id': '0001', 'title': 'A', 'text': 'Trommel'},
+                                          '0002': {'node_id': '0002', 'title': 'B', 'text': 'Pumpe'}})
+    calls = []
+    def complete(prompt):
+        calls.append(prompt)
+        return '{"node_list":["0002"]}'
+    assert [n['node_id'] for n in pe.search('Was bedeutet E:99?', complete=complete)] == ['0002']
+    assert len(calls) == 1 and '0001' in calls[0]
+
+
+def test_error_code_prefilter_navigates_only_within_candidates(monkeypatch):
+    monkeypatch.setattr(pe, '_ensure_loaded', lambda: None)
+    monkeypatch.setattr(pe, 'BATCH', 10)
+    nodes = {f'{i:04d}': {'node_id': f'{i:04d}', 'title': f'T{i}', 'text': 'E:23 Bodenwanne'} for i in range(1, 8)}
+    nodes['0009'] = {'node_id': '0009', 'title': 'Anderes', 'text': 'Trommel'}
+    monkeypatch.setattr(pe, '_node_map', nodes)
+    prompts = []
+    def complete(prompt):
+        prompts.append(prompt)
+        return '{"node_list":["0003"]}'
+    assert [n['node_id'] for n in pe.search('E:23?', complete=complete, max_nodes=5)] == ['0003']
+    assert all('0009' not in p for p in prompts)

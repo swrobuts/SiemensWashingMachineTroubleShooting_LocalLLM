@@ -1,0 +1,316 @@
+{
+  "metric_note": "Keyword-based retrieval proxy, not answer correctness or judged document recall.",
+  "mode": "pageindex",
+  "label": "Nach Umbau: Fehlercode-Vorfilter, deutsche Stichwort-Kurzfassungen, Batch 30",
+  "model": "gemma-4-12b-it-mlx",
+  "batch": 30,
+  "summary_chars": 160,
+  "max_nodes": 5,
+  "evaluation_stage": "selected_sections_before_answer_context_budget",
+  "questions": 10,
+  "keyword_hit_rate": 1.0,
+  "keyword_hit_at_1": 0.8,
+  "keyword_mrr": 0.8833333333333334,
+  "keyword_coverage": 0.925,
+  "llm_calls": 63,
+  "query_seconds": 489.34689362486824,
+  "timing_note": "Lauf 20.09.2026 mit kaltem Prompt-Cache (neue Kurzfassungen). Fragen mit Fehlercode: 0 Auswahlaufrufe durch den Vorfilter; freie Fragen: 7 Batch-Aufrufe plus ein Rangfolge-Aufruf.",
+  "results": [
+    {
+      "id": "wasser-austritt",
+      "question": "Wasser läuft unter meiner Waschmaschine aus, was kann ich tun?",
+      "matched_keywords": [
+        "ablaufschlauch",
+        "bodenwanne",
+        "undichtigkeit",
+        "verschraubung",
+        "zulaufschlauch"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 0.5,
+      "selected": [
+        {
+          "node_id": "0124",
+          "title": "Achtung! Wasserschäden"
+        },
+        {
+          "node_id": "0125",
+          "title": "Hinweise im Anzeigefeld"
+        },
+        {
+          "node_id": "0126",
+          "title": "Störungen, was tun?"
+        },
+        {
+          "node_id": "0145",
+          "title": "Achtung! Wasserschaden"
+        },
+        {
+          "node_id": "0166",
+          "title": "Achtung! Wasserschaden"
+        }
+      ],
+      "llm_calls": 8,
+      "prompt_chars": 37877,
+      "seconds": 67.4
+    },
+    {
+      "id": "fehler-e18",
+      "question": "Was bedeutet der Fehlercode E:18?",
+      "matched_keywords": [
+        "abflussrohr",
+        "ablaufschlauch",
+        "laugenpumpe",
+        "verstopft"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "selected": [
+        {
+          "node_id": "0125",
+          "title": "Hinweise im Anzeigefeld"
+        }
+      ],
+      "llm_calls": 0,
+      "prompt_chars": 0,
+      "seconds": 0.0
+    },
+    {
+      "id": "fehler-e23",
+      "question": "Meine Maschine zeigt E:23 an. Was ist das Problem?",
+      "matched_keywords": [
+        "bodenwanne",
+        "kundendienst",
+        "undichtigkeit",
+        "wasserhahn"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "selected": [
+        {
+          "node_id": "0125",
+          "title": "Hinweise im Anzeigefeld"
+        }
+      ],
+      "llm_calls": 0,
+      "prompt_chars": 0,
+      "seconds": 0.0
+    },
+    {
+      "id": "kein-abpumpen",
+      "question": "Die Waschlauge wird nicht abgepumpt.",
+      "matched_keywords": [
+        "laugenpumpe"
+      ],
+      "keyword_coverage": 0.25,
+      "reciprocal_rank": 0.3333333333333333,
+      "selected": [
+        {
+          "node_id": "0071",
+          "title": ": Warnung"
+        },
+        {
+          "node_id": "0078",
+          "title": ": Warnung"
+        },
+        {
+          "node_id": "0113",
+          "title": "Laugenpumpe verstopft, Notentleerung"
+        },
+        {
+          "node_id": "0114",
+          "title": ": Warnung Verbrühungsgefahr!"
+        },
+        {
+          "node_id": "0115",
+          "title": "3. Service-Klappe öffnen und abnehmen."
+        }
+      ],
+      "llm_calls": 8,
+      "prompt_chars": 37086,
+      "seconds": 65.5
+    },
+    {
+      "id": "kein-wassereinlauf",
+      "question": "Es läuft kein Wasser in die Maschine ein.",
+      "matched_keywords": [
+        "geknickt",
+        "sieb",
+        "wasserhahn",
+        "zulaufschlauch"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "selected": [
+        {
+          "node_id": "0008",
+          "title": "de"
+        },
+        {
+          "node_id": "0117",
+          "title": "Sieb im Wasserzulauf verstopft"
+        },
+        {
+          "node_id": "0118",
+          "title": "Hierzu zuerst Wasserdruck im Zulaufschlauch abbauen:"
+        },
+        {
+          "node_id": "0119",
+          "title": "Dann Siebe reinigen:"
+        },
+        {
+          "node_id": "0125",
+          "title": "Hinweise im Anzeigefeld"
+        }
+      ],
+      "llm_calls": 8,
+      "prompt_chars": 37415,
+      "seconds": 66.1
+    },
+    {
+      "id": "tuer-oeffnet-nicht",
+      "question": "Das Einfüllfenster lässt sich nicht öffnen.",
+      "matched_keywords": [
+        "notentriegelung",
+        "sicherheitsfunktion",
+        "spülstopp"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "selected": [
+        {
+          "node_id": "0121",
+          "title": "S t r ö n u , e g w a . ? s Notentriegelung"
+        },
+        {
+          "node_id": "0124",
+          "title": "Achtung! Wasserschäden"
+        },
+        {
+          "node_id": "0126",
+          "title": "Störungen, was tun?"
+        }
+      ],
+      "llm_calls": 8,
+      "prompt_chars": 36915,
+      "seconds": 62.1
+    },
+    {
+      "id": "programm-startet-nicht",
+      "question": "Das Programm startet einfach nicht.",
+      "matched_keywords": [
+        "einfüllfenster",
+        "kindersicherung",
+        "taste"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "selected": [
+        {
+          "node_id": "0029",
+          "title": "@ Taste Ü zum:"
+        },
+        {
+          "node_id": "0083",
+          "title": "Programm starten"
+        },
+        {
+          "node_id": "0126",
+          "title": "Störungen, was tun?"
+        },
+        {
+          "node_id": "0176",
+          "title": "Vorbereitende Arbeiten:"
+        }
+      ],
+      "llm_calls": 8,
+      "prompt_chars": 36857,
+      "seconds": 61.4
+    },
+    {
+      "id": "zu-viel-schaum",
+      "question": "Es bildet sich viel zu viel Schaum in der Maschine.",
+      "matched_keywords": [
+        "dosieren",
+        "schaum",
+        "spülgänge",
+        "waschmittel"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "selected": [
+        {
+          "node_id": "0076",
+          "title": "Dosieren"
+        },
+        {
+          "node_id": "0083",
+          "title": "Programm starten"
+        }
+      ],
+      "llm_calls": 8,
+      "prompt_chars": 35807,
+      "seconds": 56.8
+    },
+    {
+      "id": "kindersicherung",
+      "question": "Wie schalte ich die Kindersicherung wieder aus?",
+      "matched_keywords": [
+        "deaktivieren",
+        "kindersicherung"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "selected": [
+        {
+          "node_id": "0067",
+          "title": "Gerät einschalten/Programm wählen"
+        },
+        {
+          "node_id": "0083",
+          "title": "Programm starten"
+        },
+        {
+          "node_id": "0084",
+          "title": "Kindersicherung"
+        }
+      ],
+      "llm_calls": 7,
+      "prompt_chars": 34020,
+      "seconds": 52.4
+    },
+    {
+      "id": "trommel-reinigen",
+      "question": "Wie reinige ich die Trommel meiner Waschmaschine?",
+      "matched_keywords": [
+        "bleichehaltiges",
+        "laugenbehälter",
+        "pulvervollwaschmittel",
+        "trommel reinigen"
+      ],
+      "keyword_coverage": 1.0,
+      "reciprocal_rank": 1.0,
+      "selected": [
+        {
+          "node_id": "0040",
+          "title": "de Programmübersicht"
+        },
+        {
+          "node_id": "0103",
+          "title": "Reinigen und warten"
+        },
+        {
+          "node_id": "0110",
+          "title": "Waschtrommel"
+        },
+        {
+          "node_id": "0177",
+          "title": "Programm ohne Wäsche durchführen:"
+        }
+      ],
+      "llm_calls": 8,
+      "prompt_chars": 35814,
+      "seconds": 57.7
+    }
+  ]
+}

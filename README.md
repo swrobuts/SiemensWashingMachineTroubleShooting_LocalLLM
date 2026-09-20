@@ -143,7 +143,10 @@ Inhalt invalidiert den Vektorcache und den alten PageIndex-Baum.
 Der Baumaufbau benötigt zusätzlich `PAGEINDEX_MODEL=lm_studio/<Modell-ID>`
 und gegebenenfalls `LM_STUDIO_API_BASE`; anschließend
 `python build_pageindex_tree.py`. Der optionale Builder verwendet LiteLLM,
-die laufende App den gemeinsamen OpenAI-SDK-Client.
+die laufende App den gemeinsamen OpenAI-SDK-Client. Die Kurzfassungen, die das
+Modell bei der PageIndex-Auswahl liest, erzeugt `python build_pageindex_summaries.py`
+neu (deutsch, stichwortdicht, lokal via LM Studio); `python eval/run_eval_pageindex.py`
+misst den Modus mit denselben zehn Fragen.
 
 ## Dokumentation
 
